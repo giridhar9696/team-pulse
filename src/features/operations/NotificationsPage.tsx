@@ -42,8 +42,9 @@ export function NotificationsPage() {
         <section className="activity-list">
           {filtered.map((item) => {
             const isRead = readNotificationIds.includes(item.id);
+            const isRedAlert = item.id.startsWith("red-alert");
             return (
-              <Link className={isRead ? "notification-item notification-item--read" : "notification-item"} key={item.id} to={item.to} onClick={() => markNotificationRead(item.id)}>
+              <Link className={`${isRead ? "notification-item notification-item--read" : "notification-item"}${isRedAlert ? " notification-item--alert" : ""}`} key={item.id} to={item.to} onClick={() => markNotificationRead(item.id)}>
                 <Bell size={18} />
                 <div>
                   <strong>{item.title}</strong>

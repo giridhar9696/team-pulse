@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { Download, Search } from "lucide-react";
 import { StateBlock } from "../../components/ui/StateBlock";
 import { useProjects } from "./projectContext";
@@ -94,12 +95,12 @@ export function ReportsPage() {
       </section>
 
       <section className="metric-grid metric-grid--six">
-        <Metric label="Projects" value={stats.totalProjects} />
-        <Metric label="Tasks" value={tasks.length} />
-        <Metric label="Approved" value={tasks.filter((task) => task.status === "approved").length} />
-        <Metric label="Overdue" value={tasks.filter((task) => task.status === "overdue" || isTaskOverdue(task)).length} />
-        <Metric label="On Time" value={onTime} />
-        <Metric label="Late" value={late} />
+        <Metric label="Projects" value={stats.totalProjects} to="/admin/projects" />
+        <Metric label="Tasks" value={tasks.length} to="/admin/tasks" />
+        <Metric label="Approved" value={tasks.filter((task) => task.status === "approved").length} to="/admin/tasks?status=approved" />
+        <Metric label="Overdue" value={tasks.filter((task) => task.status === "overdue" || isTaskOverdue(task)).length} to="/admin/tasks?overdue=1" />
+        <Metric label="On Time" value={onTime} to="/admin/tasks?status=approved" />
+        <Metric label="Late" value={late} to="/admin/tasks?status=approved" />
       </section>
 
       {tasks.length === 0 ? <StateBlock title="No report rows">Adjust filters or date range to show report data.</StateBlock> : (
@@ -132,8 +133,8 @@ function countBy<T extends Record<string, string>>(rows: T[], key: keyof T) {
   return Object.entries(counts).map(([label, value]) => ({ label: statusLabel(label), value }));
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return <article className="metric-card"><span>{label}</span><strong>{value}</strong></article>;
+function Metric({ label, value, to }: { label: string; value: number; to: string }) {
+  return <Link className="metric-card metric-card--link" to={to}><span>{label}</span><strong>{value}</strong></Link>;
 }
 
 function Panel({ title, children }: { title: string; children: ReactNode }) {

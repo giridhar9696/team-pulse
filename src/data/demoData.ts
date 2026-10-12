@@ -14,7 +14,7 @@ export type TeamPulseEmployee = {
   name: string;
   email: string;
   role: string;
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "frozen";
   demoPassword: string;
   velocity: number;
 };

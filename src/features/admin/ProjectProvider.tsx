@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { initialProjects, type ProjectTask, type TeamPulseEmployee, type TeamPulseProject } from "../../data/demoData";
 import { readEmployeeDirectory, writeEmployeeDirectory } from "../../data/employeeDirectory";
 import { ProjectContext, type ProjectContextValue, type TeamPulseSettings } from "./projectContext";
@@ -62,7 +62,7 @@ function readSettings() {
     notificationDigest: typeof parsed.notificationDigest === "boolean" ? parsed.notificationDigest : defaultSettings.notificationDigest,
     deadlineAlerts: typeof parsed.deadlineAlerts === "boolean" ? parsed.deadlineAlerts : defaultSettings.deadlineAlerts,
     dateFormat: parsed.dateFormat === "friendly" ? "friendly" : "iso",
-    theme: parsed.theme === "system" ? "system" : "dark",
+    theme: parsed.theme === "light" ? "light" : parsed.theme === "system" ? "system" : "dark",
   };
 }
 
@@ -120,6 +120,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [employees, setEmployees] = useState<TeamPulseEmployee[]>(() => readEmployeeDirectory());
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => readStringArray("team-pulse-read-notifications"));
   const [settings, setSettings] = useState<TeamPulseSettings>(() => readSettings());
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings.theme;
+  }, [settings.theme]);
 
   function persistEmployees(updater: (current: TeamPulseEmployee[]) => TeamPulseEmployee[]) {
     setEmployees((current) => {
@@ -298,6 +302,21 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
               changes.length ? `Task edited: ${changes.join(", ")}.` : "Task edited by admin.",
             );
             return { task: updated, message: `Task ${taskId} edited.` };
+          });
+          resultTask = result.task;
+          return result.projects;
+        });
+        return resultTask;
+      },
+      reassignTask: (taskId, assigneeId) => {
+        const current = findTask(projects, taskId);
+        const employee = employees.find((item) => item.id === assigneeId && item.status === "active");
+        if (!current || !employee || current.task.status === "approved" || current.task.status === "cancelled") return null;
+        let resultTask: ProjectTask | null = null;
+        persistProjects((currentProjects) => {
+          const result = updateTaskInProjects(currentProjects, taskId, (task) => {
+            const updated = appendTaskHistory({ ...task, assigneeId }, `Task reassigned to ${employee.name}.`);
+            return { task: updated, message: `Task ${taskId} reassigned to ${employee.name}.` };
           });
           resultTask = result.task;
           return result.projects;

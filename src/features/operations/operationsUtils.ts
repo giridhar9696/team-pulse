@@ -34,6 +34,14 @@ export type ActivityRecord = {
   taskId?: string;
 };
 
+const demoToday = "2026-10-12";
+
+function addDays(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00`);
+  value.setDate(value.getDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
 export function getVisibleTasks(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: DemoUser | null) {
   const tasks = getTaskRecords(projects, employees);
   if (user?.role === "employee") return tasks.filter((task) => task.assigneeId === user.identifier);
@@ -63,6 +71,19 @@ export function buildNotifications(projects: TeamPulseProject[], employees: Team
         title: isTaskOverdue(task) || task.status === "overdue" ? "Deadline reached" : "Approaching deadline",
         message: `${task.title} is due ${task.deadline}.`,
         at: `${task.deadline}T08:00`,
+        to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
+        audience: user?.role ?? "admin",
+        employeeId: task.assigneeId,
+      });
+    }
+
+    if (task.deadline === addDays(demoToday, 1) && task.status !== "approved" && task.status !== "cancelled") {
+      items.push({
+        id: `red-alert-task-${task.id}`,
+        category: "deadline",
+        title: "Red alert: due tomorrow",
+        message: `${task.title} is one day away from deadline.`,
+        at: `${demoToday}T17:00`,
         to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
         audience: user?.role ?? "admin",
         employeeId: task.assigneeId,
@@ -114,7 +135,8 @@ export function buildNotifications(projects: TeamPulseProject[], employees: Team
   const projectNotifications = projects
     .filter(() => user?.role === "admin")
     .flatMap((project) =>
-      project.notifications.map<AppNotification>((message, index) => ({
+      [
+        ...project.notifications.map<AppNotification>((message, index) => ({
         id: `project-${project.id}-${index}`,
         category: "project",
         title: "Project update",
@@ -122,7 +144,17 @@ export function buildNotifications(projects: TeamPulseProject[], employees: Team
         at: `${project.deadline}T10:00`,
         to: user?.role === "admin" ? `/admin/projects/${project.id}` : "/employee/projects",
         audience: user?.role ?? "admin",
-      })),
+        })),
+        ...(project.deadline === addDays(demoToday, 1) ? [{
+          id: `red-alert-project-${project.id}`,
+          category: "deadline" as const,
+          title: "Red alert: project due tomorrow",
+          message: `${project.name} reaches its project deadline tomorrow.`,
+          at: `${demoToday}T17:30`,
+          to: `/admin/projects/${project.id}`,
+          audience: "admin" as const,
+        }] : []),
+      ],
     );
 
   const employeeNotifications = user?.role === "admin"

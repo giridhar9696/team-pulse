@@ -77,6 +77,20 @@ export function AddProjectForm() {
     }));
   }
 
+  function includeAllSections() {
+    setForm((current) => ({
+      ...current,
+      tasks: Object.fromEntries(areas.map((area) => [area, { ...current.tasks[area], enabled: true }])) as FormState["tasks"],
+    }));
+  }
+
+  function assignEnabledSections(assigneeId: string) {
+    setForm((current) => ({
+      ...current,
+      tasks: Object.fromEntries(areas.map((area) => [area, current.tasks[area].enabled ? { ...current.tasks[area], assigneeId } : current.tasks[area]])) as FormState["tasks"],
+    }));
+  }
+
   function validate() {
     const nextErrors: ErrorMap = {};
     if (!form.name.trim()) nextErrors.name = "Project name is required.";
@@ -169,7 +183,15 @@ export function AddProjectForm() {
               <h2>Core project scope</h2>
               <p>Primary metadata and delivery constraints.</p>
             </div>
-            <span className="status-chip">Draft v1.0</span>
+            <div className="action-row">
+              <button className="button button--secondary" type="button" onClick={includeAllSections}>Include full stack</button>
+              <label className="select-field">
+                <select aria-label="Assign all enabled sections" onChange={(event) => event.target.value && assignEnabledSections(event.target.value)} defaultValue="">
+                  <option value="" disabled>Assign enabled sections</option>
+                  {assignableEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+                </select>
+              </label>
+            </div>
           </div>
           <div className="form-grid">
             <FieldShell id="project-name" label="Project name" error={errors.name}>

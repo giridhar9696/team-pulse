@@ -15,7 +15,7 @@ function blankEmployee(): EmployeeInput {
 }
 
 export function EmployeeManagement() {
-  const { projects, employees, createEmployee, updateEmployee, setEmployeeStatus, resetEmployeePassword } = useProjects();
+  const { projects, employees, createEmployee, updateEmployee, setEmployeeStatus, resetEmployeePassword, reassignTask } = useProjects();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [editing, setEditing] = useState<TeamPulseEmployee | "new" | null>(null);
@@ -34,7 +34,7 @@ export function EmployeeManagement() {
       return;
     }
     setEmployeeStatus(employee.id, status);
-    setToast(`${employee.name} ${status === "active" ? "reactivated" : "deactivated"}.`);
+    setToast(`${employee.name} ${status === "active" ? "resumed" : status === "frozen" ? "frozen" : "deactivated"}.`);
   }
 
   return (
@@ -101,6 +101,7 @@ export function EmployeeManagement() {
               <option value="all">All statuses</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
+              <option value="frozen">Frozen</option>
             </select>
           </label>
         </div>
@@ -137,6 +138,19 @@ export function EmployeeManagement() {
                     <span className="mono">{task.id}</span>
                     <strong>{task.title}</strong>
                     <span className="status-chip">{statusLabel(task.status)}</span>
+                    <label className="select-field select-field--full">
+                      <select
+                        aria-label={`Reassign ${task.id}`}
+                        value={task.assigneeId}
+                        onChange={(event) => {
+                          const result = reassignTask(task.id, event.target.value);
+                          setToast(result ? `${task.id} reassigned.` : `${task.id} could not be reassigned.`);
+                        }}
+                        disabled={task.status === "approved" || task.status === "cancelled"}
+                      >
+                        {employees.filter((item) => item.status === "active").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </select>
+                    </label>
                   </article>
                 ))}
               </div>
@@ -144,9 +158,12 @@ export function EmployeeManagement() {
                 <button className="icon-button" type="button" aria-label={`Edit ${employee.name}`} onClick={() => setEditing(employee)}><Edit3 size={16} /></button>
                 <button className="icon-button" type="button" aria-label={`Reset password for ${employee.name}`} onClick={() => { resetEmployeePassword(employee.id); setToast(`${employee.name}'s demo password reset to ${defaultPassword}.`); }}><KeyRound size={16} /></button>
                 {employee.status === "active" ? (
-                  <button className="icon-button" type="button" aria-label={`Deactivate ${employee.name}`} onClick={() => handleStatus(employee, "inactive")}><UserX size={16} /></button>
+                  <>
+                    <button className="icon-button" type="button" aria-label={`Freeze ${employee.name}`} onClick={() => handleStatus(employee, "frozen")}><UserX size={16} /></button>
+                    <button className="icon-button" type="button" aria-label={`Deactivate ${employee.name}`} onClick={() => handleStatus(employee, "inactive")}><UserX size={16} /></button>
+                  </>
                 ) : (
-                  <button className="icon-button" type="button" aria-label={`Reactivate ${employee.name}`} onClick={() => handleStatus(employee, "active")}><UserCheck size={16} /></button>
+                  <button className="icon-button" type="button" aria-label={`Resume ${employee.name}`} onClick={() => handleStatus(employee, "active")}><UserCheck size={16} /></button>
                 )}
               </div>
             </article>
@@ -188,6 +205,7 @@ function EmployeeForm({ initial, existingIds, originalId, onSubmit, onCancel }: 
             <select id="employee-status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as TeamPulseEmployee["status"] })}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
+              <option value="frozen">Frozen</option>
             </select>
           </label>
         </FieldShell>

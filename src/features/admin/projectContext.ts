@@ -27,6 +27,7 @@ export type ProjectContextValue = {
   createProject: (input: CreateProjectInput) => TeamPulseProject;
   createTask: (input: TaskMutationInput) => ProjectTask;
   updateTask: (taskId: string, input: TaskMutationInput) => ProjectTask | null;
+  reassignTask: (taskId: string, assigneeId: string) => ProjectTask | null;
   submitTask: (taskId: string, input: { url: string; note: string }) => ProjectTask | null;
   reportDelay: (taskId: string, reason: string) => ProjectTask | null;
   approveTask: (taskId: string, feedback: string) => ProjectTask | null;
@@ -41,7 +42,7 @@ export type TeamPulseSettings = {
   notificationDigest: boolean;
   deadlineAlerts: boolean;
   dateFormat: "iso" | "friendly";
-  theme: "dark" | "system";
+  theme: "dark" | "light" | "system";
 };
 
 export type TaskMutationInput = {

@@ -12,7 +12,7 @@ function isEmployeeRecord(value: unknown): value is TeamPulseEmployee {
     typeof employee.name === "string" &&
     typeof employee.email === "string" &&
     typeof employee.role === "string" &&
-    (employee.status === "active" || employee.status === "inactive") &&
+    (employee.status === "active" || employee.status === "inactive" || employee.status === "frozen") &&
     typeof employee.demoPassword === "string" &&
     typeof employee.velocity === "number"
   );
