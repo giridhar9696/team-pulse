@@ -1,15 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Save, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Plus, Save, Trash2, X } from "lucide-react";
 import { FieldShell, TextAreaInput, TextInput } from "../../components/ui/FormControls";
 import { Toast } from "../../components/ui/Toast";
 import { employees as defaultEmployees, type TechnologyArea } from "../../data/demoData";
 import { useProjects } from "./projectContext";
 
 type TaskDraft = {
-  enabled: boolean;
   title: string;
   description: string;
+  technology: TechnologyArea;
   assigneeId: string;
   assignedDate: string;
   deadline: string;
@@ -21,7 +21,7 @@ type FormState = {
   startDate: string;
   deadline: string;
   status: "Active" | "At Risk" | "Review" | "Completed";
-  tasks: Record<TechnologyArea, TaskDraft>;
+  tasks: TaskDraft[];
 };
 
 type ErrorMap = Record<string, string>;
@@ -29,9 +29,9 @@ type ErrorMap = Record<string, string>;
 const areas: TechnologyArea[] = ["Frontend", "Backend", "Database"];
 
 const emptyTask = (): TaskDraft => ({
-  enabled: false,
   title: "",
   description: "",
+  technology: "Frontend",
   assigneeId: defaultEmployees[0].id,
   assignedDate: "",
   deadline: "",
@@ -43,11 +43,7 @@ const initialState: FormState = {
   startDate: "",
   deadline: "",
   status: "Active",
-  tasks: {
-    Frontend: { ...emptyTask(), enabled: true },
-    Backend: emptyTask(),
-    Database: emptyTask(),
-  },
+  tasks: [emptyTask()],
 };
 
 function isIsoDate(value: string) {
@@ -67,27 +63,24 @@ export function AddProjectForm() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function updateTask(area: TechnologyArea, patch: Partial<TaskDraft>) {
+  function updateTask(index: number, patch: Partial<TaskDraft>) {
     setForm((current) => ({
       ...current,
-      tasks: {
-        ...current.tasks,
-        [area]: { ...current.tasks[area], ...patch },
-      },
+      tasks: current.tasks.map((task, taskIndex) => (taskIndex === index ? { ...task, ...patch } : task)),
     }));
   }
 
-  function includeAllSections() {
+  function addTask() {
     setForm((current) => ({
       ...current,
-      tasks: Object.fromEntries(areas.map((area) => [area, { ...current.tasks[area], enabled: true }])) as FormState["tasks"],
+      tasks: [...current.tasks, emptyTask()],
     }));
   }
 
-  function assignEnabledSections(assigneeId: string) {
+  function removeTask(index: number) {
     setForm((current) => ({
       ...current,
-      tasks: Object.fromEntries(areas.map((area) => [area, current.tasks[area].enabled ? { ...current.tasks[area], assigneeId } : current.tasks[area]])) as FormState["tasks"],
+      tasks: current.tasks.filter((_, taskIndex) => taskIndex !== index),
     }));
   }
 
@@ -103,20 +96,20 @@ export function AddProjectForm() {
       nextErrors.deadline = "Project deadline cannot be before the start date.";
     }
 
-    const enabledTasks = areas.filter((area) => form.tasks[area].enabled);
-    if (enabledTasks.length === 0) {
-      nextErrors.tasks = "Add at least one technology task section.";
+    if (form.tasks.length === 0) {
+      nextErrors.tasks = "Add at least one project task.";
     }
 
-    enabledTasks.forEach((area) => {
-      const task = form.tasks[area];
-      if (!task.description.trim()) nextErrors[`${area}.description`] = `${area} task description is required.`;
-      if (!task.assignedDate) nextErrors[`${area}.assignedDate`] = `${area} assigned date is required.`;
-      else if (!isIsoDate(task.assignedDate)) nextErrors[`${area}.assignedDate`] = "Use YYYY-MM-DD format.";
-      if (!task.deadline) nextErrors[`${area}.deadline`] = `${area} deadline is required.`;
-      else if (!isIsoDate(task.deadline)) nextErrors[`${area}.deadline`] = "Use YYYY-MM-DD format.";
+    form.tasks.forEach((task, index) => {
+      const label = `Task ${index + 1}`;
+      if (!task.title.trim()) nextErrors[`tasks.${index}.title`] = `${label} name is required.`;
+      if (!task.description.trim()) nextErrors[`tasks.${index}.description`] = `${label} description is required.`;
+      if (!task.assignedDate) nextErrors[`tasks.${index}.assignedDate`] = `${label} assigned date is required.`;
+      else if (!isIsoDate(task.assignedDate)) nextErrors[`tasks.${index}.assignedDate`] = "Use YYYY-MM-DD format.";
+      if (!task.deadline) nextErrors[`tasks.${index}.deadline`] = `${label} deadline is required.`;
+      else if (!isIsoDate(task.deadline)) nextErrors[`tasks.${index}.deadline`] = "Use YYYY-MM-DD format.";
       if (task.assignedDate && task.deadline && task.deadline < task.assignedDate) {
-        nextErrors[`${area}.deadline`] = `${area} deadline cannot be before the assigned date.`;
+        nextErrors[`tasks.${index}.deadline`] = `${label} deadline cannot be before the assigned date.`;
       }
     });
 
@@ -137,19 +130,14 @@ export function AddProjectForm() {
       startDate: form.startDate,
       deadline: form.deadline,
       status: form.status,
-      tasks: areas
-        .filter((area) => form.tasks[area].enabled)
-        .map((area) => {
-          const task = form.tasks[area];
-          return {
-            title: task.title.trim() || `${area} implementation task`,
-            description: task.description,
-            technology: area,
-            assigneeId: task.assigneeId,
-            assignedDate: task.assignedDate,
-            deadline: task.deadline,
-          };
-        }),
+      tasks: form.tasks.map((task) => ({
+        title: task.title.trim(),
+        description: task.description,
+        technology: task.technology,
+        assigneeId: task.assigneeId,
+        assignedDate: task.assignedDate,
+        deadline: task.deadline,
+      })),
     });
     setSaving(false);
     setToast("Project created successfully.");
@@ -162,7 +150,7 @@ export function AddProjectForm() {
         <div>
           <p className="eyebrow">New project architecture</p>
           <h1>Add project</h1>
-          <p>Define the project scope and optional technology-wise task sections.</p>
+          <p>Define the project scope, then add each task with its assignee and dates.</p>
         </div>
         <Link className="button button--secondary" to="/admin/projects">
           <ArrowLeft size={16} /> Back to Projects
@@ -182,15 +170,6 @@ export function AddProjectForm() {
             <div>
               <h2>Core project scope</h2>
               <p>Primary metadata and delivery constraints.</p>
-            </div>
-            <div className="action-row">
-              <button className="button button--secondary" type="button" onClick={includeAllSections}>Include full stack</button>
-              <label className="select-field">
-                <select aria-label="Assign all enabled sections" onChange={(event) => event.target.value && assignEnabledSections(event.target.value)} defaultValue="">
-                  <option value="" disabled>Assign enabled sections</option>
-                  {assignableEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
-                </select>
-              </label>
             </div>
           </div>
           <div className="form-grid">
@@ -218,50 +197,64 @@ export function AddProjectForm() {
           </FieldShell>
         </section>
 
-        {areas.map((area) => {
-          const task = form.tasks[area];
+        <section className="data-panel task-section">
+          <div className="panel-heading">
+            <div>
+              <h2>Project tasks</h2>
+              <p>Add tasks one by one and choose the employee, technology area, assigned date, and deadline for each task.</p>
+            </div>
+            <button className="button button--secondary" type="button" onClick={addTask}><Plus size={16} /> Add task</button>
+          </div>
+
+          {form.tasks.map((task, index) => {
+          const taskKey = `tasks.${index}`;
           return (
-            <section className="data-panel task-section" key={area}>
+            <section className="task-draft" key={index}>
               <div className="panel-heading">
                 <div>
-                  <h2>{area} task section</h2>
-                  <p>Add this section only when relevant to the project.</p>
+                  <h3>Task {index + 1}</h3>
+                  <p>{task.title || "New project task"}</p>
                 </div>
-                <label className="toggle-row">
-                  <input type="checkbox" checked={task.enabled} onChange={(event) => updateTask(area, { enabled: event.target.checked })} />
-                  <span>{task.enabled ? "Included" : "Optional"}</span>
-                </label>
+                <button className="icon-button" type="button" aria-label={`Remove task ${index + 1}`} onClick={() => removeTask(index)} disabled={form.tasks.length === 1}>
+                  <Trash2 size={16} />
+                </button>
               </div>
-              {task.enabled && (
-                <div className="form-grid">
-                  <FieldShell id={`${area}-title`} label="Task title">
-                    <TextInput id={`${area}-title`} value={task.title} onChange={(event) => updateTask(area, { title: event.target.value })} placeholder={`${area} implementation task`} />
+              <div className="form-grid">
+                  <FieldShell id={`${taskKey}-title`} label="Task name" error={errors[`${taskKey}.title`]}>
+                    <TextInput id={`${taskKey}-title`} value={task.title} onChange={(event) => updateTask(index, { title: event.target.value })} error={errors[`${taskKey}.title`]} placeholder="e.g. Authentication screen polish" />
                   </FieldShell>
-                  <FieldShell id={`${area}-assignee`} label="Assigned employee">
+                  <FieldShell id={`${taskKey}-technology`} label="Technology area">
                     <div className="select-field select-field--full">
-                      <select id={`${area}-assignee`} name={`${area}-assignee`} value={task.assigneeId} onChange={(event) => updateTask(area, { assigneeId: event.target.value })}>
+                      <select id={`${taskKey}-technology`} name={`${taskKey}-technology`} value={task.technology} onChange={(event) => updateTask(index, { technology: event.target.value as TechnologyArea })}>
+                        {areas.map((area) => <option key={area} value={area}>{area}</option>)}
+                      </select>
+                    </div>
+                  </FieldShell>
+                  <FieldShell id={`${taskKey}-assignee`} label="Assigned employee">
+                    <div className="select-field select-field--full">
+                      <select id={`${taskKey}-assignee`} name={`${taskKey}-assignee`} value={task.assigneeId} onChange={(event) => updateTask(index, { assigneeId: event.target.value })}>
                         {assignableEmployees.map((employee) => (
                           <option value={employee.id} key={employee.id}>{employee.name} · {employee.role}</option>
                         ))}
                       </select>
                     </div>
                   </FieldShell>
-                  <FieldShell id={`${area}-assigned`} label="Assigned date" error={errors[`${area}.assignedDate`]}>
-                    <TextInput id={`${area}-assigned`} value={task.assignedDate} onChange={(event) => updateTask(area, { assignedDate: event.target.value })} error={errors[`${area}.assignedDate`]} placeholder="2026-10-16" />
+                  <FieldShell id={`${taskKey}-assigned`} label="Assigned date" error={errors[`${taskKey}.assignedDate`]}>
+                    <TextInput id={`${taskKey}-assigned`} value={task.assignedDate} onChange={(event) => updateTask(index, { assignedDate: event.target.value })} error={errors[`${taskKey}.assignedDate`]} placeholder="2026-10-16" />
                   </FieldShell>
-                  <FieldShell id={`${area}-deadline`} label="Deadline" error={errors[`${area}.deadline`]}>
-                    <TextInput id={`${area}-deadline`} value={task.deadline} onChange={(event) => updateTask(area, { deadline: event.target.value })} error={errors[`${area}.deadline`]} placeholder="2026-11-08" />
+                  <FieldShell id={`${taskKey}-deadline`} label="Deadline" error={errors[`${taskKey}.deadline`]}>
+                    <TextInput id={`${taskKey}-deadline`} value={task.deadline} onChange={(event) => updateTask(index, { deadline: event.target.value })} error={errors[`${taskKey}.deadline`]} placeholder="2026-11-08" />
                   </FieldShell>
                   <div className="form-grid__wide">
-                    <FieldShell id={`${area}-description`} label="Task description" error={errors[`${area}.description`]}>
-                      <TextAreaInput id={`${area}-description`} value={task.description} onChange={(event) => updateTask(area, { description: event.target.value })} placeholder={`Describe ${area.toLowerCase()} scope, deliverables, and constraints.`} />
+                    <FieldShell id={`${taskKey}-description`} label="Task description" error={errors[`${taskKey}.description`]}>
+                      <TextAreaInput id={`${taskKey}-description`} value={task.description} onChange={(event) => updateTask(index, { description: event.target.value })} placeholder="Describe scope, deliverables, and constraints." />
                     </FieldShell>
                   </div>
                 </div>
-              )}
             </section>
           );
         })}
+        </section>
 
         <div className="form-actions">
           <Link className="button button--secondary" to="/admin/projects">

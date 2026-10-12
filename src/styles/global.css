@@ -21,6 +21,7 @@
   --color-hero: linear-gradient(135deg, rgba(21, 31, 53, 0.96), rgba(16, 24, 43, 0.84));
   --color-hero-panel: rgba(11, 16, 32, 0.45);
   --color-hover: rgba(255, 255, 255, 0.05);
+  --color-bg-accent: rgba(79, 140, 255, 0.16);
   --color-success: #2dd4a7;
   --color-warning: #fbbf24;
   --color-error: #fb7185;
@@ -46,21 +47,22 @@
   --color-bg-secondary: #eaf0f8;
   --color-sidebar: #ffffff;
   --color-card: #ffffff;
-  --color-elevated: #edf4ff;
+  --color-elevated: #e5f0ff;
   --color-primary: #2563eb;
   --color-violet: #7c3aed;
   --color-cyan: #0891b2;
-  --color-text: #111827;
-  --color-text-secondary: #334155;
-  --color-text-muted: #64748b;
+  --color-text: #020617;
+  --color-text-secondary: #1e293b;
+  --color-text-muted: #475569;
   --color-border: #cbd5e1;
   --color-border-soft: rgba(148, 163, 184, 0.55);
   --color-topbar: rgba(255, 255, 255, 0.88);
   --color-surface-subtle: #f8fafc;
-  --color-surface-soft: #eef4ff;
-  --color-hero: linear-gradient(135deg, #ffffff, #edf4ff);
+  --color-surface-soft: #e6f0ff;
+  --color-hero: linear-gradient(135deg, #ffffff, #e6f0ff);
   --color-hero-panel: #f8fafc;
   --color-hover: rgba(37, 99, 235, 0.08);
+  --color-bg-accent: rgba(37, 99, 235, 0.24);
   --color-success: #059669;
   --color-warning: #b45309;
   --color-error: #e11d48;
@@ -77,7 +79,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(79, 140, 255, 0.16), transparent 28rem),
+    radial-gradient(circle at top left, var(--color-bg-accent), transparent 28rem),
     var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
@@ -793,6 +795,24 @@ p {
   border-left: 2px solid rgba(79, 140, 255, 0.35);
 }
 
+.task-draft,
+.employee-card__editor {
+  display: grid;
+  gap: var(--space-4);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+  padding: var(--space-4);
+}
+
+.task-draft + .task-draft {
+  margin-top: var(--space-4);
+}
+
+.employee-card__editor {
+  margin-top: var(--space-4);
+}
+
 .toggle-row {
   display: inline-flex;
   align-items: center;
@@ -813,9 +833,9 @@ p {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
-  border: 1px solid rgba(40, 53, 80, 0.8);
+  border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-lg);
-  background: rgba(11, 16, 32, 0.86);
+  background: var(--color-topbar);
   box-shadow: var(--shadow-float);
   padding: var(--space-3);
   backdrop-filter: blur(16px);

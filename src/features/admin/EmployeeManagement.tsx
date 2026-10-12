@@ -67,18 +67,17 @@ export function EmployeeManagement() {
         </section>
       )}
 
-      {editing && (
+      {editing === "new" && (
         <section className="data-panel">
           <div className="panel-heading">
-            <h2>{editing === "new" ? "Add employee" : `Edit ${editing.name}`}</h2>
+            <h2>Add employee</h2>
           </div>
           <EmployeeForm
-            initial={editing === "new" ? blankEmployee() : editing}
+            initial={blankEmployee()}
             existingIds={employees.map((employee) => employee.id)}
-            originalId={editing === "new" ? undefined : editing.id}
             onCancel={() => setEditing(null)}
             onSubmit={(input) => {
-              const result = editing === "new" ? createEmployee(input) : updateEmployee(editing.id, input);
+              const result = createEmployee(input);
               if (!result) {
                 setToast("Duplicate employee ID rejected.");
                 return;
@@ -110,6 +109,7 @@ export function EmployeeManagement() {
       <section className="employee-directory">
         {filtered.map((employee) => {
           const metrics = getEmployeeMetrics(employee, projects);
+          const isEditingEmployee = editing !== "new" && editing?.id === employee.id;
           return (
             <article className="employee-card" key={employee.id}>
               <div className="employee-card__header">
@@ -155,8 +155,8 @@ export function EmployeeManagement() {
                 ))}
               </div>
               <div className="row-actions">
-                <button className="icon-button" type="button" aria-label={`Edit ${employee.name}`} onClick={() => setEditing(employee)}><Edit3 size={16} /></button>
-                <button className="icon-button" type="button" aria-label={`Reset password for ${employee.name}`} onClick={() => { resetEmployeePassword(employee.id); setToast(`${employee.name}'s demo password reset to ${defaultPassword}.`); }}><KeyRound size={16} /></button>
+                <button className="icon-button" type="button" title="Edit employee details" aria-label={`Edit ${employee.name}`} onClick={() => setEditing(isEditingEmployee ? null : employee)}><Edit3 size={16} /></button>
+                <button className="icon-button" type="button" title="Reset demo password" aria-label={`Reset password for ${employee.name}`} onClick={() => { resetEmployeePassword(employee.id); setToast(`${employee.name}'s demo password reset to ${defaultPassword}.`); }}><KeyRound size={16} /></button>
                 {employee.status === "active" ? (
                   <>
                     <button className="icon-button" type="button" aria-label={`Freeze ${employee.name}`} onClick={() => handleStatus(employee, "frozen")}><UserX size={16} /></button>
@@ -166,6 +166,31 @@ export function EmployeeManagement() {
                   <button className="icon-button" type="button" aria-label={`Resume ${employee.name}`} onClick={() => handleStatus(employee, "active")}><UserCheck size={16} /></button>
                 )}
               </div>
+              {isEditingEmployee && (
+                <section className="employee-card__editor" aria-label={`Edit ${employee.name} details`}>
+                  <div className="panel-heading">
+                    <div>
+                      <h3>Edit employee details</h3>
+                      <p>Pen edits details. Key resets the prototype password.</p>
+                    </div>
+                  </div>
+                  <EmployeeForm
+                    initial={employee}
+                    existingIds={employees.map((item) => item.id)}
+                    originalId={employee.id}
+                    onCancel={() => setEditing(null)}
+                    onSubmit={(input) => {
+                      const result = updateEmployee(employee.id, input);
+                      if (!result) {
+                        setToast("Duplicate employee ID rejected.");
+                        return;
+                      }
+                      setToast(`${result.name} saved.`);
+                      setEditing(null);
+                    }}
+                  />
+                </section>
+              )}
             </article>
           );
         })}
