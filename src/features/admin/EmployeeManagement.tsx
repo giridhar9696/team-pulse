@@ -133,7 +133,7 @@ export function EmployeeManagement() {
                 <span className="mono">{employee.velocity}%</span>
               </div>
               <div className="activity-list employee-card__tasks">
-                {metrics.tasks.slice(0, 4).map((task) => (
+                {metrics.tasks.map((task) => (
                   <article key={task.id}>
                     <span className="mono">{task.id}</span>
                     <strong>{task.title}</strong>
