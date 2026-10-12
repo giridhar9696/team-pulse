@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Eye, Grid2X2, List, Search, Send, TimerReset } from "lucide-react";
 import { StateBlock } from "../../components/ui/StateBlock";
 import { useAuth } from "../auth/authContext";
@@ -10,15 +10,16 @@ import { canEmployeeSubmit, getEmployeeTasks } from "./employeeUtils";
 export function EmployeeTasks() {
   const { user } = useAuth();
   const { projects, employees } = useProjects();
+  const [searchParams] = useSearchParams();
   const employeeId = user?.identifier ?? "";
   const tasks = getEmployeeTasks(projects, employeeId, employees);
   const [view, setView] = useState<"cards" | "table">("cards");
   const [query, setQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("all");
   const [techFilter, setTechFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "all");
   const [deadlineFilter, setDeadlineFilter] = useState("all");
-  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [overdueOnly, setOverdueOnly] = useState(searchParams.get("overdue") === "1");
 
   const filtered = useMemo(() => {
     return tasks.filter((task) => {

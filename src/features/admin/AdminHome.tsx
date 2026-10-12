@@ -50,12 +50,12 @@ export function AdminHome() {
       </section>
 
       <section className="metric-grid metric-grid--six" aria-label="Admin metrics">
-        <MetricCard icon={<FolderKanban size={20} />} label="Total Projects" value={stats.totalProjects} />
-        <MetricCard icon={<FolderKanban size={20} />} label="Active Projects" value={stats.activeProjects} />
-        <MetricCard icon={<ClipboardList size={20} />} label="Total Tasks" value={stats.totalTasks} />
-        <MetricCard icon={<CheckCircle2 size={20} />} label="Approved Tasks" value={stats.approvedTasks} />
-        <MetricCard icon={<CalendarClock size={20} />} label="Pending Tasks" value={stats.pendingTasks} />
-        <MetricCard icon={<AlertTriangle size={20} />} label="Overdue Tasks" value={stats.overdueTasks} tone="danger" />
+        <MetricCard icon={<FolderKanban size={20} />} label="Total Projects" value={stats.totalProjects} to="/admin/projects" />
+        <MetricCard icon={<FolderKanban size={20} />} label="Active Projects" value={stats.activeProjects} to="/admin/projects" />
+        <MetricCard icon={<ClipboardList size={20} />} label="Total Tasks" value={stats.totalTasks} to="/admin/tasks" />
+        <MetricCard icon={<CheckCircle2 size={20} />} label="Approved Tasks" value={stats.approvedTasks} to="/admin/tasks?status=approved" />
+        <MetricCard icon={<CalendarClock size={20} />} label="Pending Tasks" value={stats.pendingTasks} to="/admin/tasks" />
+        <MetricCard icon={<AlertTriangle size={20} />} label="Overdue Tasks" value={stats.overdueTasks} tone="danger" to="/admin/tasks?overdue=1" />
       </section>
 
       <section className="dashboard-grid">
@@ -138,13 +138,13 @@ export function AdminHome() {
   );
 }
 
-function MetricCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone?: "danger" }) {
+function MetricCard({ icon, label, value, tone, to }: { icon: React.ReactNode; label: string; value: number; tone?: "danger"; to: string }) {
   return (
-    <article className={tone === "danger" ? "metric-card metric-card--danger" : "metric-card"}>
+    <Link className={tone === "danger" ? "metric-card metric-card--danger metric-card--link" : "metric-card metric-card--link"} to={to}>
       {icon}
       <span>{label}</span>
       <strong>{value}</strong>
-    </article>
+    </Link>
   );
 }
 

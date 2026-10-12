@@ -42,6 +42,13 @@ const defaultSettings: TeamPulseSettings = {
   theme: "dark",
 };
 
+const projectsStorageKey = "team-pulse-projects";
+
+function readProjects() {
+  const parsed = readJson<unknown>(projectsStorageKey, initialProjects);
+  return Array.isArray(parsed) && parsed.length ? parsed as TeamPulseProject[] : initialProjects;
+}
+
 function readStringArray(key: string) {
   const parsed = readJson<unknown>(key, []);
   return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
@@ -109,7 +116,7 @@ function updateTaskInProjects(
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const [projects, setProjects] = useState<TeamPulseProject[]>(initialProjects);
+  const [projects, setProjects] = useState<TeamPulseProject[]>(() => readProjects());
   const [employees, setEmployees] = useState<TeamPulseEmployee[]>(() => readEmployeeDirectory());
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => readStringArray("team-pulse-read-notifications"));
   const [settings, setSettings] = useState<TeamPulseSettings>(() => readSettings());
@@ -118,6 +125,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setEmployees((current) => {
       const next = updater(current);
       writeEmployeeDirectory(next);
+      return next;
+    });
+  }
+
+  function persistProjects(updater: (current: TeamPulseProject[]) => TeamPulseProject[]) {
+    setProjects((current) => {
+      const next = updater(current);
+      window.localStorage.setItem(projectsStorageKey, JSON.stringify(next));
       return next;
     });
   }
@@ -167,7 +182,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           }),
         );
         if (normalizedId !== employeeId) {
-          setProjects((currentProjects) =>
+          persistProjects((currentProjects) =>
             currentProjects.map((project) => ({
               ...project,
               ownerId: project.ownerId === employeeId ? normalizedId : project.ownerId,
@@ -231,12 +246,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           })),
         };
         const normalized = { ...newProject, status: getDerivedProjectStatus(newProject) };
-        setProjects((current) => [...current, normalized]);
+        persistProjects((current) => [...current, normalized]);
         return normalized;
       },
       createTask: (input) => {
         let created: ProjectTask | null = null;
-        setProjects((current) =>
+        persistProjects((current) =>
           current.map((project) => {
             if (project.id !== input.projectId) return project;
             const nextTask: ProjectTask = appendTaskHistory(
@@ -263,7 +278,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const current = findTask(projects, taskId);
         if (!current || current.task.status === "approved" || current.task.status === "cancelled") return null;
         let resultTask: ProjectTask | null = null;
-        setProjects((currentProjects) => {
+        persistProjects((currentProjects) => {
           const result = updateTaskInProjects(currentProjects, taskId, (task) => {
             const changes: string[] = [];
             if (task.assigneeId !== input.assigneeId) changes.push("assignee changed");
@@ -293,7 +308,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const current = findTask(projects, taskId);
         if (!current || current.task.status === "approved" || current.task.status === "cancelled") return null;
         let resultTask: ProjectTask | null = null;
-        setProjects((currentProjects) => {
+        persistProjects((currentProjects) => {
           const result = updateTaskInProjects(currentProjects, taskId, (task) => {
             const submissions = task.submissions ?? [];
             const submission = {
@@ -322,7 +337,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const current = findTask(projects, taskId);
         if (!current || current.task.status === "approved" || current.task.status === "cancelled") return null;
         let resultTask: ProjectTask | null = null;
-        setProjects((currentProjects) => {
+        persistProjects((currentProjects) => {
           const result = updateTaskInProjects(currentProjects, taskId, (task) => {
             const delays = task.delays ?? (task.delay ? [task.delay] : []);
             const delay = { reportedAt: nowStamp(), reason };
@@ -346,7 +361,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const current = findTask(projects, taskId);
         if (!current || current.task.status === "approved" || current.task.status === "cancelled" || !current.task.submission) return null;
         let resultTask: ProjectTask | null = null;
-        setProjects((currentProjects) => {
+        persistProjects((currentProjects) => {
           const result = updateTaskInProjects(currentProjects, taskId, (task) => {
             const updated = appendTaskHistory(
               {
@@ -367,7 +382,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const current = findTask(projects, taskId);
         if (!current || current.task.status === "approved" || current.task.status === "cancelled" || !current.task.submission) return null;
         let resultTask: ProjectTask | null = null;
-        setProjects((currentProjects) => {
+        persistProjects((currentProjects) => {
           const result = updateTaskInProjects(currentProjects, taskId, (task) => {
             const updated = appendTaskHistory(
               {
@@ -388,7 +403,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         const current = findTask(projects, taskId);
         if (!current || current.task.status === "approved" || current.task.status === "cancelled") return null;
         let resultTask: ProjectTask | null = null;
-        setProjects((currentProjects) => {
+        persistProjects((currentProjects) => {
           const result = updateTaskInProjects(currentProjects, taskId, (task) => {
             const updated = appendTaskHistory({ ...task, status: "cancelled" }, "Task cancelled by admin.");
             return { task: updated, message: `Task ${taskId} cancelled.` };

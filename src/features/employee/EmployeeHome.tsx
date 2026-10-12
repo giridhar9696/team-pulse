@@ -46,12 +46,12 @@ export function EmployeeHome() {
       </section>
 
       <section className="metric-grid metric-grid--six" aria-label="Employee task metrics">
-        <Metric icon={<ListChecks size={20} />} label="Assigned" value={metrics.assigned} />
-        <Metric icon={<CircleDot size={20} />} label="In Progress" value={metrics.inProgress} />
-        <Metric icon={<GitPullRequestArrow size={20} />} label="Review" value={metrics.awaitingReview} />
-        <Metric icon={<TimerReset size={20} />} label="Changes" value={metrics.changesRequested} />
-        <Metric icon={<CheckCircle2 size={20} />} label="Completed" value={metrics.completed} />
-        <Metric danger icon={<CalendarClock size={20} />} label="Overdue" value={metrics.overdue} />
+        <Metric icon={<ListChecks size={20} />} label="Assigned" value={metrics.assigned} to="/employee/tasks" />
+        <Metric icon={<CircleDot size={20} />} label="In Progress" value={metrics.inProgress} to="/employee/tasks?status=in_progress" />
+        <Metric icon={<GitPullRequestArrow size={20} />} label="Review" value={metrics.awaitingReview} to="/employee/tasks?status=submitted" />
+        <Metric icon={<TimerReset size={20} />} label="Changes" value={metrics.changesRequested} to="/employee/tasks?status=changes_requested" />
+        <Metric icon={<CheckCircle2 size={20} />} label="Completed" value={metrics.completed} to="/employee/tasks?status=approved" />
+        <Metric danger icon={<CalendarClock size={20} />} label="Overdue" value={metrics.overdue} to="/employee/tasks?overdue=1" />
       </section>
 
       {employeeTasks.length === 0 ? (
@@ -149,12 +149,12 @@ export function EmployeeHome() {
   );
 }
 
-function Metric({ icon, label, value, danger }: { icon: ReactNode; label: string; value: number; danger?: boolean }) {
+function Metric({ icon, label, value, danger, to }: { icon: ReactNode; label: string; value: number; danger?: boolean; to: string }) {
   return (
-    <article className={danger ? "metric-card metric-card--danger" : "metric-card"}>
+    <Link className={danger ? "metric-card metric-card--danger metric-card--link" : "metric-card metric-card--link"} to={to}>
       {icon}
       <span>{label}</span>
       <strong>{value}</strong>
-    </article>
+    </Link>
   );
 }

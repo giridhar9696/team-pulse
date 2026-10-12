@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Edit3, Eye, Plus, Search, XCircle } from "lucide-react";
 import { StateBlock } from "../../components/ui/StateBlock";
 import { Toast } from "../../components/ui/Toast";
@@ -10,12 +10,13 @@ import { getTaskRecords, isTaskOverdue, statusLabel, type TaskRecord } from "./t
 
 export function AdminTasks() {
   const { projects, employees, createTask, updateTask, cancelTask } = useProjects();
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("all");
   const [techFilter, setTechFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "all");
+  const [overdueOnly, setOverdueOnly] = useState(searchParams.get("overdue") === "1");
   const [editing, setEditing] = useState<TaskRecord | "new" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const navigate = useNavigate();
