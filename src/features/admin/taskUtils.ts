@@ -1,4 +1,5 @@
-import { employees as defaultEmployees, type ProjectTask, type TeamPulseEmployee, type TeamPulseProject } from "../../data/demoData";
+import type { ProjectTask, TeamPulseEmployee, TeamPulseProject } from "../../data/types";
+import { todayDate } from '../../lib/validation';
 
 export type TaskRecord = ProjectTask & {
   projectId: string;
@@ -7,7 +8,7 @@ export type TaskRecord = ProjectTask & {
   assigneeRole: string;
 };
 
-export function getTaskRecords(projects: TeamPulseProject[], employees: TeamPulseEmployee[] = defaultEmployees): TaskRecord[] {
+export function getTaskRecords(projects: TeamPulseProject[], employees: TeamPulseEmployee[] = []): TaskRecord[] {
   return projects.flatMap((project) =>
     project.tasks.map((task) => {
       const employee = employees.find((item) => item.id === task.assigneeId);
@@ -30,5 +31,5 @@ export function statusLabel(status: string) {
 }
 
 export function isTaskOverdue(task: ProjectTask) {
-  return task.status !== "approved" && task.status !== "cancelled" && task.deadline < "2026-10-12";
+  return task.status !== "approved" && task.status !== "cancelled" && (task.overdue ?? task.deadline < todayDate());
 }

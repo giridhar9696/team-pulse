@@ -5,8 +5,10 @@ import { useProjects } from "../admin/projectContext";
 import { statusLabel } from "../admin/taskUtils";
 import { useAuth } from "../auth/authContext";
 import { getEmployeeProjects } from "./employeeUtils";
+import { useDateFormat } from '../operations/useDateFormat';
 
 export function EmployeeProjects() {
+  const formatDate=useDateFormat();
   const { user } = useAuth();
   const { projects } = useProjects();
   const employeeProjects = getEmployeeProjects(projects, user?.identifier ?? "");
@@ -40,7 +42,7 @@ export function EmployeeProjects() {
               </div>
               <div className="project-card__meta">
                 <span>{project.progress}% approved required work</span>
-                <span>Due {project.deadline}</span>
+                <span>Due {formatDate(project.deadline)}</span>
               </div>
               <div className="employee-project-tasks">
                 {project.tasks.map((task) => (

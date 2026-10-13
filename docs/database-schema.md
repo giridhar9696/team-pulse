@@ -4,6 +4,12 @@ The foundation migration creates organizations, memberships, projects, project m
 
 All tables enable RLS. Client roles have SELECT access only. Writes run through narrow authenticated functions; private SECURITY DEFINER implementations use an empty search_path, current auth.uid(), active membership and scoped checks. Public wrappers are SECURITY INVOKER. No private schema is exposed through the Data API.
 
+Subsequent migrations add confirmed-email linkage, private rate-limit records, deadline notices, cross-task review integrity and foreign-key/history indexes. Scoped project summary functions expose progress/status aggregates only for permitted projects so employee project totals remain accurate without disclosing another user's tasks. Detailed task access still requires independent assignment and project checks.
+
+Submission URLs are canonicalized in the browser and validated independently by PostgreSQL, including domain labels, IP literals and port bounds. Malformed direct-API submissions cannot poison workspace reads. Assignment-driven project membership is removed after the last task is handed off to another employee; task and review history remain intact.
+
+Notification access checks both current task and project access. Assignment notices catch up after invitation acceptance without duplicates. Deadline generation respects saved preferences; a new deadline phase reopens its notice. Organization time zones determine deadline days and completion-report dates. Seven ordered migrations implement these changes.
+
 Project creation includes initial task creation, membership and event/notification creation in one transaction. Task mutation locks the record and checks the caller's expected version. Submission/review/delay history and task state are atomic. Employee updates also check a version. Related project/member/task references use organization-scoped foreign keys. Deadline ranges, nonempty text, roles/statuses, URLs and performance ranges have constraints.
 
 Transitions: new tasks pending/in_progress/overdue; admin can switch between these work states. Submission moves an open work task or changes_requested task to submitted. Review requires submitted/review plus an existing submission and moves to approved or changes_requested. Delay cannot overwrite a pending review. Approved/cancelled tasks are immutable. Administrative cancellation closes any nonterminal task. Reassignment does not discard historical submissions or reviews.

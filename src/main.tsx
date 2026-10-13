@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Link, Navigate, RouterProvider } from "react-router-dom";
 import { AppShell } from "./app/AppShell";
 import { AdminHome } from "./features/admin/AdminHome";
 import { AddProjectForm } from "./features/admin/AddProjectForm";
@@ -27,15 +27,20 @@ import { ProjectWorkspace } from "./features/admin/ProjectWorkspace";
 import "./styles/global.css";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RecoveryPage } from './features/auth/RecoveryPage';
+import { initializeMonitoring } from './lib/monitoring';
+import { AppErrorBoundary, RouteErrorPage } from './components/ui/AppErrorBoundary';
+
+initializeMonitoring();
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 15000 } } });
 
-const router = createBrowserRouter([
+const router = createBrowserRouter([{errorElement:<RouteErrorPage />,children:[
   { path: "/", element: <Navigate to="/login" replace /> },
   { path: "/login", element: <LoginPage /> },
   { path: '/auth/recovery', element: <RecoveryPage complete /> },
   { path: '/auth/invitation', element: <RecoveryPage complete /> },
   { path: '/forgot-password', element: <RecoveryPage /> },
+  { path: '*', element: <main className="page-shell"><h1>Page not found</h1><Link to="/login">Return to sign in</Link></main> },
   {
     path: "/admin",
     element: <RequireRole role="admin" />,
@@ -82,14 +87,14 @@ const router = createBrowserRouter([
       },
     ],
   },
-]);
+]}]);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}><AuthProvider>
+    <AppErrorBoundary><QueryClientProvider client={queryClient}><AuthProvider>
       <ProjectProvider>
         <RouterProvider router={router} />
       </ProjectProvider>
-    </AuthProvider></QueryClientProvider>
+    </AuthProvider></QueryClientProvider></AppErrorBoundary>
   </StrictMode>,
 );

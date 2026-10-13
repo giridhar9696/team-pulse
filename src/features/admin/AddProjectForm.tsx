@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Plus, Save, Trash2, X } from "lucide-react";
 import { FieldShell, TextAreaInput, TextInput } from "../../components/ui/FormControls";
 import { Toast } from "../../components/ui/Toast";
-import { employees as defaultEmployees, type TechnologyArea } from "../../data/demoData";
+import type { TechnologyArea } from "../../data/types";
 import { useProjects } from "./projectContext";
+import { isoDate } from '../../lib/validation';
 
 type TaskDraft = {
   title: string;
@@ -32,7 +33,7 @@ const emptyTask = (): TaskDraft => ({
   title: "",
   description: "",
   technology: "Frontend",
-  assigneeId: defaultEmployees[0].id,
+  assigneeId: '',
   assignedDate: "",
   deadline: "",
 });
@@ -47,7 +48,7 @@ const initialState: FormState = {
 };
 
 function isIsoDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00`));
+  return isoDate.safeParse(value).success;
 }
 
 export function AddProjectForm() {
@@ -102,6 +103,7 @@ export function AddProjectForm() {
 
     form.tasks.forEach((task, index) => {
       const label = `Task ${index + 1}`;
+      if (!assignableEmployees.some(e=>e.id===task.assigneeId)) nextErrors[`tasks.${index}.assigneeId`] = 'Choose an active employee.';
       if (!task.title.trim()) nextErrors[`tasks.${index}.title`] = `${label} name is required.`;
       if (!task.description.trim()) nextErrors[`tasks.${index}.description`] = `${label} description is required.`;
       if (!task.assignedDate) nextErrors[`tasks.${index}.assignedDate`] = `${label} assigned date is required.`;
@@ -123,8 +125,7 @@ export function AddProjectForm() {
     if (!validate()) return;
 
     setSaving(true);
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
-    const project = createProject({
+    const project = await createProject({
       name: form.name,
       description: form.description,
       startDate: form.startDate,
@@ -140,6 +141,7 @@ export function AddProjectForm() {
       })),
     });
     setSaving(false);
+    if (!project) return;
     setToast("Project created successfully.");
     navigate(`/admin/projects/${project.id}`);
   }
@@ -230,9 +232,10 @@ export function AddProjectForm() {
                       </select>
                     </div>
                   </FieldShell>
-                  <FieldShell id={`${taskKey}-assignee`} label="Assigned employee">
+                  <FieldShell id={`${taskKey}-assignee`} label="Assigned employee" error={errors[`${taskKey}.assigneeId`]}>
                     <div className="select-field select-field--full">
                       <select id={`${taskKey}-assignee`} name={`${taskKey}-assignee`} value={task.assigneeId} onChange={(event) => updateTask(index, { assigneeId: event.target.value })}>
+                        <option value="">Choose an employee</option>
                         {assignableEmployees.map((employee) => (
                           <option value={employee.id} key={employee.id}>{employee.name} · {employee.role}</option>
                         ))}

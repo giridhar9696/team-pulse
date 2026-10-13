@@ -1,0 +1,18 @@
+begin;
+alter table public.submissions add constraint submissions_task_identity unique(organization_id,task_id,id);
+alter table public.reviews drop constraint reviews_submission_id_fkey;
+alter table public.reviews add constraint reviews_submission_same_task foreign key(organization_id,task_id,submission_id) references public.submissions(organization_id,task_id,id);
+create index submissions_task_time on public.submissions(task_id,created_at desc);
+create index submissions_actor on public.submissions(actor_id);
+create index reviews_task_time on public.reviews(task_id,created_at desc);
+create index reviews_submission on public.reviews(organization_id,task_id,submission_id);
+create index reviews_actor on public.reviews(actor_id);
+create index delays_task_time on public.delays(task_id,created_at desc);
+create index delays_actor on public.delays(actor_id);
+create index activity_org_time on public.activity_events(organization_id,created_at desc);
+create index activity_project on public.activity_events(organization_id,project_id);
+create index activity_task on public.activity_events(organization_id,task_id);
+create index activity_actor on public.activity_events(actor_id);
+create index notifications_org_task on public.notifications(organization_id,task_id);
+create index account_requests_actor on private.account_requests(requested_by);
+commit;

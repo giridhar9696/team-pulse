@@ -6,8 +6,10 @@ import { useAuth } from "../auth/authContext";
 import { useProjects } from "../admin/projectContext";
 import { isTaskOverdue, statusLabel } from "../admin/taskUtils";
 import { canEmployeeSubmit, getEmployeeTasks } from "./employeeUtils";
+import { useDateFormat } from '../operations/useDateFormat';
 
 export function EmployeeTasks() {
+  const formatDate=useDateFormat();
   const { user } = useAuth();
   const { projects, employees } = useProjects();
   const [searchParams] = useSearchParams();
@@ -60,7 +62,7 @@ export function EmployeeTasks() {
         <div className="filters-grid filters-grid--employee">
           <label className="search-field filters-grid__search" htmlFor="employee-task-search">
             <Search size={16} />
-            <input id="employee-task-search" name="employee-task-search" placeholder="Search my tasks or projects" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input id="employee-task-search" name="employee-task-search" aria-label="Search my tasks" placeholder="Search my tasks or projects" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <Select label="Project filter" value={projectFilter} onChange={setProjectFilter}>
             <option value="all">All projects</option>
@@ -111,7 +113,7 @@ export function EmployeeTasks() {
                 <span>{task.projectName} / {task.technology}</span>
               </div>
               <span className="status-chip">{statusLabel(task.status)}</span>
-              <span className={isTaskOverdue(task) ? "deadline deadline--late" : "deadline"}>{task.deadline}</span>
+              <span className={isTaskOverdue(task) ? "deadline deadline--late" : "deadline"}>{formatDate(task.deadline)}</span>
               <div className="row-actions">
                 <Link className="icon-button" aria-label={`View ${task.id}`} to={`/employee/tasks/${task.id}`}><Eye size={16} /></Link>
               </div>
@@ -124,6 +126,7 @@ export function EmployeeTasks() {
 }
 
 function EmployeeTaskCard({ task }: { task: ReturnType<typeof getEmployeeTasks>[number] }) {
+  const formatDate=useDateFormat();
   const overdue = task.status === "overdue" || isTaskOverdue(task);
   const actionLabel = task.status === "changes_requested" ? "Resubmit" : task.submission ? "Update Work" : "Submit Work";
 
@@ -142,10 +145,10 @@ function EmployeeTaskCard({ task }: { task: ReturnType<typeof getEmployeeTasks>[
         <div className="chip-row">
           <span className="status-chip status-chip--cyan">{task.technology}</span>
           <span className="status-chip status-chip--violet">{task.projectName}</span>
-          <span className={overdue ? "deadline deadline--late" : "deadline"}>Due {task.deadline}</span>
+          <span className={overdue ? "deadline deadline--late" : "deadline"}>Due {formatDate(task.deadline)}</span>
         </div>
         {task.review?.decision === "changes_requested" && <p className="callout callout--warning">Admin feedback: {task.review.feedback}</p>}
-        {task.submission && <p className="compact-note">Latest submission: {task.submission.submittedAt}</p>}
+        {task.submission && <p className="compact-note">Latest submission: {formatDate(task.submission.submittedAt)}</p>}
         <div className="employee-task-card__actions">
           <Link className="button button--secondary" to={`/employee/tasks/${task.id}`}><Eye size={16} /> Details</Link>
           <Link className="button button--secondary" to={`/employee/tasks/${task.id}#delay`}><TimerReset size={16} /> Report Delay</Link>

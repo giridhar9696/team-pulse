@@ -1,21 +1,22 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Save } from "lucide-react";
 import { FieldShell, TextAreaInput, TextInput } from "../../components/ui/FormControls";
-import { employees as defaultEmployees, type TaskStatus, type TeamPulseEmployee, type TechnologyArea } from "../../data/demoData";
+import type { TaskStatus, TeamPulseEmployee, TechnologyArea } from "../../data/types";
 import type { TaskMutationInput } from "./projectContext";
+import { isoDate } from '../../lib/validation';
 
 type TaskFormProps = {
   projects: { id: string; name: string }[];
   employees?: TeamPulseEmployee[];
   initial?: TaskMutationInput;
   submitLabel: string;
-  onSubmit: (input: TaskMutationInput) => void;
+  onSubmit: (input: TaskMutationInput) => Promise<void>;
   onCancel: () => void;
 };
 
 type Errors = Record<string, string>;
 
-const statuses: TaskStatus[] = ["pending", "in_progress", "submitted", "review", "changes_requested", "approved", "overdue", "cancelled"];
+const statuses: TaskStatus[] = ["pending", "in_progress", "overdue"];
 const technologies: TechnologyArea[] = ["Frontend", "Backend", "Database"];
 
 function defaultInput(projectId: string, employees: TeamPulseEmployee[]): TaskMutationInput {
@@ -33,18 +34,14 @@ function defaultInput(projectId: string, employees: TeamPulseEmployee[]): TaskMu
 }
 
 function isIsoDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00`));
+  return isoDate.safeParse(value).success;
 }
 
-export function TaskForm({ projects, employees = defaultEmployees, initial, submitLabel, onSubmit, onCancel }: TaskFormProps) {
+export function TaskForm({ projects, employees = [], initial, submitLabel, onSubmit, onCancel }: TaskFormProps) {
   const assignableEmployees = useMemo(() => employees.filter((employee) => employee.status === "active"), [employees]);
   const [form, setForm] = useState<TaskMutationInput>(() => initial ?? defaultInput(projects[0]?.id ?? "", assignableEmployees));
   const [errors, setErrors] = useState<Errors>({});
-
-  useEffect(() => {
-    setForm(initial ?? defaultInput(projects[0]?.id ?? "", assignableEmployees));
-    setErrors({});
-  }, [assignableEmployees, initial, projects]);
+  const [saving, setSaving] = useState(false);
 
   function update<K extends keyof TaskMutationInput>(key: K, value: TaskMutationInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -53,6 +50,7 @@ export function TaskForm({ projects, employees = defaultEmployees, initial, subm
   function validate() {
     const next: Errors = {};
     if (!form.projectId) next.projectId = "Project is required.";
+    if (!assignableEmployees.some(e=>e.id===form.assigneeId)) next.assigneeId = 'Choose an active employee.';
     if (!form.title.trim()) next.title = "Task title is required.";
     if (!form.description.trim()) next.description = "Task description is required.";
     if (!form.assignedDate) next.assignedDate = "Assigned date is required.";
@@ -64,10 +62,11 @@ export function TaskForm({ projects, employees = defaultEmployees, initial, subm
     return Object.keys(next).length === 0;
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validate()) return;
-    onSubmit(form);
+    if (saving || !validate()) return;
+    setSaving(true);
+    try { await onSubmit(form); } finally { setSaving(false); }
   }
 
   return (
@@ -75,7 +74,7 @@ export function TaskForm({ projects, employees = defaultEmployees, initial, subm
       <div className="form-grid">
         <FieldShell id="task-project" label="Project" error={errors.projectId}>
           <div className="select-field select-field--full">
-            <select id="task-project" name="task-project" value={form.projectId} onChange={(event) => update("projectId", event.target.value)}>
+            <select id="task-project" name="task-project" value={form.projectId} disabled={Boolean(initial)} onChange={(event) => update("projectId", event.target.value)}>
               {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
             </select>
           </div>
@@ -83,7 +82,7 @@ export function TaskForm({ projects, employees = defaultEmployees, initial, subm
         <FieldShell id="task-status" label="Status">
           <div className="select-field select-field--full">
             <select id="task-status" name="task-status" value={form.status} onChange={(event) => update("status", event.target.value as TaskStatus)}>
-              {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+              {Array.from(new Set([...(initial ? [initial.status] : []),...statuses])).map((status) => <option key={status} value={status}>{status}</option>)}
             </select>
           </div>
         </FieldShell>
@@ -124,7 +123,7 @@ export function TaskForm({ projects, employees = defaultEmployees, initial, subm
       </div>
       <div className="form-actions form-actions--inline">
         <button className="button button--secondary" type="button" onClick={onCancel}>Cancel</button>
-        <button className="button button--primary" type="submit"><Save size={16} /> {submitLabel}</button>
+        <button className="button button--primary" type="submit" disabled={saving}><Save size={16} /> {saving ? 'Saving…' : submitLabel}</button>
       </div>
     </form>
   );

@@ -7,11 +7,7 @@ import { useProjects } from "./projectContext";
 import { getDashboardStats, getProjectProgress } from "./projectMetrics";
 import { isTaskOverdue, statusLabel } from "./taskUtils";
 import { getEmployeeMetrics } from "./employeeMetrics";
-
-function csvEscape(value: string | number) {
-  const text = String(value);
-  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
+import { csvEscape, todayDate, addCalendarDays } from '../../lib/validation';
 
 function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
   const headers = Object.keys(rows[0] ?? { Message: "No rows for active filters" });
@@ -28,8 +24,8 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
 
 export function ReportsPage() {
   const { projects, employees } = useProjects();
-  const [from, setFrom] = useState("2026-09-01");
-  const [to, setTo] = useState("2026-11-30");
+  const [from, setFrom] = useState(addCalendarDays(todayDate(),-30));
+  const [to, setTo] = useState(addCalendarDays(todayDate(),90));
   const [projectFilter, setProjectFilter] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("all");
   const [techFilter, setTechFilter] = useState("all");
@@ -56,7 +52,7 @@ export function ReportsPage() {
   const techRows = countBy(tasks, "technology");
   const employeeRows = employees.map((employee) => ({ employee, metrics: getEmployeeMetrics(employee, projects) }));
   const completed = tasks.filter((task) => task.status === "approved");
-  const onTime = completed.filter((task) => !task.review || task.review.reviewedAt.slice(0, 10) <= task.deadline).length;
+  const onTime = completed.filter((task) => !task.review || (task.review.reviewedOn ?? task.review.reviewedAt.slice(0,10)) <= task.deadline).length;
   const late = completed.length - onTime;
 
   function exportTasks() {
@@ -125,9 +121,10 @@ export function ReportsPage() {
   );
 }
 
-function countBy<T extends Record<string, string>>(rows: T[], key: keyof T) {
+function countBy<T, K extends keyof T>(rows: T[], key: K) {
   const counts = rows.reduce<Record<string, number>>((acc, row) => {
-    acc[row[key]] = (acc[row[key]] ?? 0) + 1;
+    const label = String(row[key]);
+    acc[label] = (acc[label] ?? 0) + 1;
     return acc;
   }, {});
   return Object.entries(counts).map(([label, value]) => ({ label: statusLabel(label), value }));

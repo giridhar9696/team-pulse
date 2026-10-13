@@ -1,8 +1,8 @@
-import { employees as defaultEmployees, type TeamPulseEmployee, type TeamPulseProject } from "../../data/demoData";
+import type { TeamPulseEmployee, TeamPulseProject } from "../../data/types";
 import { getProjectProgress } from "../admin/projectMetrics";
 import { getTaskRecords, isTaskOverdue, type TaskRecord } from "../admin/taskUtils";
 
-export function getEmployeeTasks(projects: TeamPulseProject[], employeeId: string, employees: TeamPulseEmployee[] = defaultEmployees) {
+export function getEmployeeTasks(projects: TeamPulseProject[], employeeId: string, employees: TeamPulseEmployee[] = []) {
   return getTaskRecords(projects, employees).filter((task) => task.assigneeId === employeeId);
 }
 
@@ -28,7 +28,7 @@ export function getEmployeeTaskMetrics(tasks: TaskRecord[]) {
 }
 
 export function canEmployeeSubmit(task: Pick<TaskRecord, "status">) {
-  return task.status !== "approved" && task.status !== "cancelled";
+  return !['approved','cancelled','submitted','review'].includes(task.status);
 }
 
 export function isValidSubmissionUrl(value: string) {

@@ -4,8 +4,10 @@ import { Filter, Plus, Search } from "lucide-react";
 import { StateBlock } from "../../components/ui/StateBlock";
 import { useProjects } from "./projectContext";
 import { getDerivedProjectStatus, getProjectProgress } from "./projectMetrics";
+import { useDateFormat } from '../operations/useDateFormat';
 
 export function ProjectsList() {
+  const formatDate=useDateFormat();
   const { projects } = useProjects();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
@@ -34,7 +36,7 @@ export function ProjectsList() {
         <div>
           <p className="eyebrow">Admin projects</p>
           <h1>Projects list</h1>
-          <p>Search, filter, inspect, and create projects from one consistent demo source.</p>
+          <p>Search, filter, inspect, and create shared projects.</p>
         </div>
         <Link className="button button--primary" to="/admin/projects/new">
           <Plus size={16} /> Add Project
@@ -48,6 +50,7 @@ export function ProjectsList() {
             <input
               id="project-search"
               name="project-search"
+              aria-label="Search projects"
               placeholder="Search by project name or ID"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -55,7 +58,7 @@ export function ProjectsList() {
           </label>
           <label className="select-field">
             <Filter size={16} />
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <select aria-label="Project status" value={status} onChange={(event) => setStatus(event.target.value)}>
               <option value="all">All statuses</option>
               <option value="Active">Active</option>
               <option value="At Risk">At Risk</option>
@@ -65,7 +68,7 @@ export function ProjectsList() {
           </label>
           <label className="select-field">
             <Filter size={16} />
-            <select value={progress} onChange={(event) => setProgress(event.target.value)}>
+            <select aria-label="Project progress" value={progress} onChange={(event) => setProgress(event.target.value)}>
               <option value="all">All progress</option>
               <option value="low">Below 40%</option>
               <option value="mid">40-79%</option>
@@ -96,7 +99,7 @@ export function ProjectsList() {
               <div className="project-card__meta">
                 <span>{getProjectProgress(project)}% approved</span>
                 <span>{approved}/{project.tasks.length} tasks</span>
-                <span>Due {project.deadline}</span>
+                <span>Due {formatDate(project.deadline)}</span>
               </div>
             </Link>
           );

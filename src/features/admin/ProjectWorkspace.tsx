@@ -1,12 +1,14 @@
 import { Link, Navigate, useParams } from "react-router-dom";
 import { ArrowLeft, CalendarClock, CheckCircle2, ClipboardList } from "lucide-react";
-import { type TechnologyArea } from "../../data/demoData";
+import { type TechnologyArea } from "../../data/types";
 import { useProjects } from "./projectContext";
 import { getDerivedProjectStatus, getProjectProgress } from "./projectMetrics";
+import { useDateFormat } from '../operations/useDateFormat';
 
 const areas: TechnologyArea[] = ["Frontend", "Backend", "Database"];
 
 export function ProjectWorkspace() {
+  const formatDate=useDateFormat();
   const { projectId } = useParams();
   const { projects, employees } = useProjects();
   const project = projects.find((item) => item.id === projectId);
@@ -46,7 +48,7 @@ export function ProjectWorkspace() {
             <span style={{ width: `${progress}%` }} />
           </div>
           <div className="workspace-meta">
-            <span><CalendarClock size={15} /> {project.startDate} to {project.deadline}</span>
+            <span><CalendarClock size={15} /> {formatDate(project.startDate)} to {formatDate(project.deadline)}</span>
             <span><CheckCircle2 size={15} /> {approved}/{project.tasks.length} approved tasks</span>
             <span><ClipboardList size={15} /> {progress}% required progress</span>
           </div>
@@ -74,7 +76,7 @@ export function ProjectWorkspace() {
                         <strong>{task.title}</strong>
                         <span>{employee?.name ?? task.assigneeId}</span>
                         <span className="status-chip">{task.status}</span>
-                        <span className="mono">{task.assignedDate} → {task.deadline}</span>
+                        <span className="mono">{formatDate(task.assignedDate)} → {formatDate(task.deadline)}</span>
                         <p>{task.description}</p>
                       </article>
                     );
@@ -95,14 +97,14 @@ export function ProjectWorkspace() {
             <div className="activity-list">
               {submissions.map((task) => (
                 <article key={task.id}>
-                  <span className="mono">{task.submission?.submittedAt}</span>
+                  <span className="mono">{task.submission ? formatDate(task.submission.submittedAt) : ''}</span>
                   <strong>{task.title}</strong>
                   <p>{task.submission?.note}</p>
                 </article>
               ))}
             </div>
           ) : (
-            <p>No approval history is fabricated here. Prompt 4 can connect task review workflows.</p>
+            <p>No work has been submitted yet.</p>
           )}
         </section>
         <section className="data-panel">
@@ -112,7 +114,7 @@ export function ProjectWorkspace() {
           <div className="activity-list">
             {project.activity.map((item) => (
               <article key={item.id}>
-                <span className="mono">{item.at}</span>
+                <span className="mono">{formatDate(item.at)}</span>
                 <p>{item.message}</p>
               </article>
             ))}

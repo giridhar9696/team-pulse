@@ -1,6 +1,6 @@
 import type { AppUser } from "../auth/authService";
-import type { TeamPulseEmployee, TeamPulseProject } from "../../data/demoData";
-import { getTaskRecords, isTaskOverdue, statusLabel } from "../admin/taskUtils";
+import type { TeamPulseEmployee, TeamPulseProject } from "../../data/types";
+import { getTaskRecords, statusLabel } from "../admin/taskUtils";
 
 export type NotificationCategory =
   | "task"
@@ -19,6 +19,7 @@ export type AppNotification = {
   at: string;
   to: string;
   audience: "admin" | "employee";
+  urgent?: boolean;
   employeeId?: string;
 };
 
@@ -32,190 +33,17 @@ export type ActivityRecord = {
   projectName?: string;
   employeeId?: string;
   taskId?: string;
+  day?: string;
 };
 
-const demoToday = "2026-10-12";
-
-function addDays(date: string, days: number) {
-  const value = new Date(`${date}T00:00:00`);
-  value.setDate(value.getDate() + days);
-  return value.toISOString().slice(0, 10);
-}
-
 export function getVisibleTasks(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: AppUser | null) {
+  if (!user) return [];
   const tasks = getTaskRecords(projects, employees);
-  if (user?.role === "employee") return tasks.filter((task) => task.assigneeId === user.identifier);
-  return tasks;
+  return user.role === 'employee' ? tasks.filter(task => task.assigneeId === user.identifier) : tasks;
 }
-
-export function buildNotifications(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: AppUser | null): AppNotification[] {
-  const tasks = getVisibleTasks(projects, employees, user);
-  const taskNotifications = tasks.flatMap<AppNotification>((task) => {
-    const items: AppNotification[] = [
-      {
-        id: `assigned-${task.id}`,
-        category: "task",
-        title: "Task assigned",
-        message: `${task.title} is assigned to ${task.assigneeName}.`,
-        at: `${task.assignedDate}T09:00`,
-        to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
-        audience: user?.role ?? "admin",
-        employeeId: task.assigneeId,
-      },
-    ];
-
-    if (task.deadline <= "2026-10-14" && task.status !== "approved" && task.status !== "cancelled") {
-      items.push({
-        id: `deadline-${task.id}`,
-        category: "deadline",
-        title: isTaskOverdue(task) || task.status === "overdue" ? "Deadline reached" : "Approaching deadline",
-        message: `${task.title} is due ${task.deadline}.`,
-        at: `${task.deadline}T08:00`,
-        to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
-        audience: user?.role ?? "admin",
-        employeeId: task.assigneeId,
-      });
-    }
-
-    if (task.deadline === addDays(demoToday, 1) && task.status !== "approved" && task.status !== "cancelled") {
-      items.push({
-        id: `red-alert-task-${task.id}`,
-        category: "deadline",
-        title: "Red alert: due tomorrow",
-        message: `${task.title} is one day away from deadline.`,
-        at: `${demoToday}T17:00`,
-        to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
-        audience: user?.role ?? "admin",
-        employeeId: task.assigneeId,
-      });
-    }
-
-    if (task.delay) {
-      items.push({
-        id: `delay-${task.id}-${task.delay.reportedAt}`,
-        category: "deadline",
-        title: "Delay reported",
-        message: task.delay.reason,
-        at: task.delay.reportedAt,
-        to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
-        audience: user?.role ?? "admin",
-        employeeId: task.assigneeId,
-      });
-    }
-
-    if (task.submission) {
-      items.push({
-        id: `submission-${task.id}-${task.submission.submittedAt}`,
-        category: "submission",
-        title: "Work submitted",
-        message: `${task.title} was submitted for review.`,
-        at: task.submission.submittedAt,
-        to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
-        audience: user?.role ?? "admin",
-        employeeId: task.assigneeId,
-      });
-    }
-
-    if (task.review) {
-      items.push({
-        id: `review-${task.id}-${task.review.reviewedAt}`,
-        category: "review",
-        title: task.review.decision === "approved" ? "Task approved" : "Changes requested",
-        message: task.review.feedback,
-        at: task.review.reviewedAt,
-        to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
-        audience: user?.role ?? "admin",
-        employeeId: task.assigneeId,
-      });
-    }
-
-    return items;
-  });
-
-  const projectNotifications = projects
-    .filter(() => user?.role === "admin")
-    .flatMap((project) =>
-      [
-        ...project.notifications.map<AppNotification>((message, index) => ({
-        id: `project-${project.id}-${index}`,
-        category: "project",
-        title: "Project update",
-        message,
-        at: `${project.deadline}T10:00`,
-        to: user?.role === "admin" ? `/admin/projects/${project.id}` : "/employee/projects",
-        audience: user?.role ?? "admin",
-        })),
-        ...(project.deadline === addDays(demoToday, 1) ? [{
-          id: `red-alert-project-${project.id}`,
-          category: "deadline" as const,
-          title: "Red alert: project due tomorrow",
-          message: `${project.name} reaches its project deadline tomorrow.`,
-          at: `${demoToday}T17:30`,
-          to: `/admin/projects/${project.id}`,
-          audience: "admin" as const,
-        }] : []),
-      ],
-    );
-
-  const employeeNotifications = user?.role === "admin"
-    ? employees.map<AppNotification>((employee) => ({
-        id: `employee-${employee.id}-${employee.status}`,
-        category: "employee",
-        title: "Employee account update",
-        message: `${employee.name} is ${employee.status}.`,
-        at: "2026-10-12T09:00",
-        to: "/admin/employees",
-        audience: "admin",
-        employeeId: employee.id,
-      }))
-    : [];
-
-  return [...taskNotifications, ...projectNotifications, ...employeeNotifications].sort((a, b) => b.at.localeCompare(a.at));
-}
-
-export function buildActivity(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: AppUser | null): ActivityRecord[] {
-  const visibleTasks = getVisibleTasks(projects, employees, user);
-  const taskEvents = visibleTasks.flatMap((task) => (task.history ?? []).map<ActivityRecord>((entry) => ({
-    id: entry.id,
-    action: entry.message.split(".")[0],
-    description: `${task.id} / ${task.title}: ${entry.message}`,
-    at: entry.at,
-    to: user?.role === "admin" ? `/admin/tasks/${task.id}` : `/employee/tasks/${task.id}`,
-    projectId: task.projectId,
-    projectName: task.projectName,
-    employeeId: task.assigneeId,
-    taskId: task.id,
-  })));
-
-  const projectEvents = projects
-    .filter(() => user?.role === "admin")
-    .flatMap((project) => project.activity.map<ActivityRecord>((entry) => ({
-      id: entry.id,
-      action: "Project update",
-      description: entry.message,
-      at: entry.at,
-      to: user?.role === "admin" ? `/admin/projects/${project.id}` : "/employee/projects",
-      projectId: project.id,
-      projectName: project.name,
-    })));
-
-  const accountEvents = user?.role === "admin"
-    ? employees.map<ActivityRecord>((employee) => ({
-        id: `account-${employee.id}-${employee.status}`,
-        action: "Employee account",
-        description: `${employee.name} account is ${employee.status}.`,
-        at: "2026-10-12T09:00",
-        to: "/admin/employees",
-        employeeId: employee.id,
-      }))
-    : [];
-
-  return [...taskEvents, ...projectEvents, ...accountEvents].sort((a, b) => b.at.localeCompare(a.at));
-}
-
 export function getSearchResults(projects: TeamPulseProject[], employees: TeamPulseEmployee[], notifications: AppNotification[], user: AppUser | null, query: string) {
   const q = query.trim().toLowerCase();
-  if (!q) return { projects: [], tasks: [], employees: [], notifications: [] };
+  if (!user || !q) return { projects: [], tasks: [], employees: [], notifications: [] };
   const visibleProjects = projects.filter((project) => user?.role === "admin" || project.tasks.some((task) => task.assigneeId === user?.identifier));
   const visibleTasks = getVisibleTasks(projects, employees, user);
   return {

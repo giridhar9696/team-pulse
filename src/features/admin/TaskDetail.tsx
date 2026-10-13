@@ -5,8 +5,11 @@ import { FieldShell, TextAreaInput, TextInput } from "../../components/ui/FormCo
 import { Toast } from "../../components/ui/Toast";
 import { useProjects } from "./projectContext";
 import { getTaskRecords, statusLabel } from "./taskUtils";
+import { submissionInput } from '../../lib/validation';
+import { useDateFormat } from '../operations/useDateFormat';
 
 export function TaskDetail() {
+  const formatDate=useDateFormat();
   const { taskId } = useParams();
   const { projects, employees, approveTask, requestChanges, submitTask, reportDelay, cancelTask } = useProjects();
   const task = useMemo(() => getTaskRecords(projects, employees).find((item) => item.id === taskId), [employees, projects, taskId]);
@@ -19,46 +22,54 @@ export function TaskDetail() {
 
   if (!task) return <Navigate to="/admin/tasks" replace />;
 
-  const canReview = Boolean(task.submission) && task.status !== "approved" && task.status !== "cancelled";
-  const canSubmit = task.status !== "approved" && task.status !== "cancelled";
+  const canReview = Boolean(task.submission) && ['submitted','review'].includes(task.status);
+  const canSubmit = !['approved','cancelled','submitted','review'].includes(task.status);
 
-  function handleApprove() {
-    const result = approveTask(task.id, feedback.trim() || "Approved.");
+  async function handleApprove() {
+    if (!task) return;
+    const result = await approveTask(task.id, feedback.trim() || "Approved.");
+    if (!result) return;
     setToast(result ? "Task approved and project progress updated." : "This task cannot be approved.");
     setFeedback("");
   }
 
-  function handleChanges() {
+  async function handleChanges() {
+    if (!task) return;
     if (feedback.trim().length < 6) {
       setError("Feedback is required before requesting changes.");
       return;
     }
-    const result = requestChanges(task.id, feedback.trim());
+    const result = await requestChanges(task.id, feedback.trim());
+    if (!result) return;
     setToast(result ? "Changes requested and previous submission preserved." : "This task cannot be changed.");
     setFeedback("");
     setError(null);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!submitUrl.trim() || !submitNote.trim()) {
-      setError("Submission URL and completion note are required.");
+    if (!task) return;
+    if (!submissionInput.safeParse({url:submitUrl.trim(),note:submitNote.trim()}).success) {
+      setError("A valid HTTP(S) URL and completion note are required.");
       return;
     }
-    const result = submitTask(task.id, { url: submitUrl.trim(), note: submitNote.trim() });
+    const result = await submitTask(task.id, { url: submitUrl.trim(), note: submitNote.trim() });
+    if (!result) return;
     setToast(result ? "Work submitted for admin review." : "This task cannot be submitted.");
     setSubmitUrl("");
     setSubmitNote("");
     setError(null);
   }
 
-  function handleDelay(event: FormEvent<HTMLFormElement>) {
+  async function handleDelay(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!task) return;
     if (!delayReason.trim()) {
       setError("Delay reason is required.");
       return;
     }
-    const result = reportDelay(task.id, delayReason.trim());
+    const result = await reportDelay(task.id, delayReason.trim());
+    if (!result) return;
     setToast(result ? "Delay reason recorded." : "This task cannot report a delay.");
     setDelayReason("");
     setError(null);
@@ -88,12 +99,12 @@ export function TaskDetail() {
             <span className="status-chip">{statusLabel(task.status)}</span>
           </div>
           <div className="workspace-meta">
-            <span>Assigned: {task.assignedDate}</span>
-            <span>Deadline: {task.deadline}</span>
+            <span>Assigned: {formatDate(task.assignedDate)}</span>
+            <span>Deadline: {formatDate(task.deadline)}</span>
             <span>{task.required ? "Required" : "Optional"}</span>
           </div>
-          {task.delay && <p className="callout callout--warning">Delay reported {task.delay.reportedAt}: {task.delay.reason}</p>}
-          {task.review && <p className="callout">Last review: {task.review.decision} at {task.review.reviewedAt}. {task.review.feedback}</p>}
+          {task.delay && <p className="callout callout--warning">Delay reported {formatDate(task.delay.reportedAt)}: {task.delay.reason}</p>}
+          {task.review && <p className="callout">Last review: {task.review.decision} at {formatDate(task.review.reviewedAt)}. {task.review.feedback}</p>}
         </article>
       </section>
 
@@ -105,7 +116,7 @@ export function TaskDetail() {
           {task.submission ? (
             <div className="activity-list">
               <article>
-                <span className="mono">{task.submission.submittedAt}</span>
+                <span className="mono">{formatDate(task.submission.submittedAt)}</span>
                 <strong><a href={task.submission.url}>{task.submission.url}</a></strong>
                 <p>{task.submission.note}</p>
               </article>
@@ -119,7 +130,7 @@ export function TaskDetail() {
           <div className="action-row">
             <button className="button button--primary" type="button" disabled={!canReview} onClick={handleApprove}><CheckCircle2 size={16} /> Approve</button>
             <button className="button button--secondary" type="button" disabled={!canReview} onClick={handleChanges}><RefreshCcw size={16} /> Request Changes</button>
-            <button className="button button--secondary" type="button" disabled={task.status === "approved" || task.status === "cancelled"} onClick={() => { cancelTask(task.id); setToast("Task cancelled."); }}><XCircle size={16} /> Cancel Task</button>
+            <button className="button button--secondary" type="button" disabled={task.status === "approved" || task.status === "cancelled"} onClick={async () => { if (await cancelTask(task.id)) setToast("Task cancelled."); }}><XCircle size={16} /> Cancel Task</button>
           </div>
         </section>
 
@@ -151,7 +162,7 @@ export function TaskDetail() {
           <div className="activity-list">
             {(task.submissions ?? []).map((submission) => (
               <article key={submission.id}>
-                <span className="mono">{submission.submittedAt}</span>
+                <span className="mono">{formatDate(submission.submittedAt)}</span>
                 <strong>{submission.url}</strong>
                 <p>{submission.note}</p>
               </article>
@@ -164,7 +175,7 @@ export function TaskDetail() {
           <div className="activity-list">
             {(task.history ?? []).map((item) => (
               <article key={item.id}>
-                <span className="mono">{item.at}</span>
+                <span className="mono">{formatDate(item.at)}</span>
                 <p>{item.message}</p>
               </article>
             ))}

@@ -4,13 +4,15 @@ import { FieldShell, TextInput } from "../../components/ui/FormControls";
 import { Toast } from "../../components/ui/Toast";
 import { useProjects } from "../admin/projectContext";
 import { useAuth } from "../auth/authContext";
+import { changePassword } from '../auth/authService';
+import { requireSupabase } from '../../lib/supabase';
 
 export function SettingsPage() {
   const { user } = useAuth();
-  const { employees, settings, updateSettings, updateEmployee, updateEmployeePassword } = useProjects();
+  const { employees, settings, updateSettings } = useProjects();
   const employee = employees.find((item) => item.id === user?.identifier);
   const [displayName, setDisplayName] = useState(settings.displayName || user?.name || "");
-  const [email, setEmail] = useState(settings.email || employee?.email || (user?.role === "admin" ? user.identifier : ""));
+  const [email, setEmail] = useState(settings.email || user?.email || employee?.email || '');
   const [password, setPassword] = useState("");
   const [digest, setDigest] = useState(settings.notificationDigest);
   const [deadlineAlerts, setDeadlineAlerts] = useState(settings.deadlineAlerts);
@@ -18,25 +20,32 @@ export function SettingsPage() {
   const [theme, setTheme] = useState(settings.theme);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     setError(null);
     if (!displayName.trim()) {
       setError("Display name is required.");
       return;
     }
-    if (password && password.length < 8) {
-      setError("Prototype password must be at least 8 characters.");
+    if (password && password.length < 12) {
+      setError("Password must be at least 12 characters.");
       return;
     }
-    updateSettings({ displayName: displayName.trim(), email: email.trim(), password: password ? "updated" : settings.password, notificationDigest: digest, deadlineAlerts, dateFormat, theme });
-    if (user?.role === "employee" && employee) {
-      updateEmployee(employee.id, { ...employee, name: displayName.trim(), email: email.trim(), demoPassword: password || employee.demoPassword });
-      if (password) updateEmployeePassword(employee.id, password);
-    }
-    setPassword("");
-    setToast("Settings saved for this frontend demo.");
+    setSaving(true);
+    try {
+      if (!await updateSettings({ displayName:displayName.trim(),email:user?.email??'',notificationDigest:digest,deadlineAlerts,dateFormat,theme })) return;
+      setToast('Preferences saved.');
+      if (email.trim() !== user?.email) {
+        const {error:emailError}=await requireSupabase().auth.updateUser({email:email.trim()},{emailRedirectTo:`${window.location.origin}/login`});
+        if (emailError) throw new Error('Preferences saved, but the email change could not be requested. Please retry.');
+        setToast('Preferences saved. Check your email to confirm the address change.');
+      }
+      if (password) { await changePassword(password); setPassword(''); setToast('Preferences and password saved.'); }
+    } catch (failure) {setError(failure instanceof Error ? failure.message : 'Unable to save account changes.');}
+    finally {setSaving(false);}
   }
 
   return (
@@ -45,7 +54,7 @@ export function SettingsPage() {
         <div>
           <p className="eyebrow">{user?.role} settings</p>
           <h1>Settings</h1>
-          <p>Profile, prototype password, notifications, date display, and theme preference.</p>
+          <p>Profile, password, notifications, date display, and theme preference.</p>
         </div>
       </section>
       {toast && <Toast tone="success" title="Settings saved" message={toast} onDismiss={() => setToast(null)} />}
@@ -54,7 +63,7 @@ export function SettingsPage() {
         <div className="form-grid">
           <FieldShell id="settings-name" label="Display name"><TextInput id="settings-name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></FieldShell>
           <FieldShell id="settings-email" label="Email"><TextInput id="settings-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></FieldShell>
-          <FieldShell id="settings-password" label="Prototype password" hint="Frontend demo only"><TextInput id="settings-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Leave blank to keep current" /></FieldShell>
+          <FieldShell id="settings-password" label="Password" hint="At least 12 characters"><TextInput id="settings-password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Leave blank to keep current" /></FieldShell>
           <FieldShell id="settings-date" label="Date display"><label className="select-field select-field--full"><select id="settings-date" value={dateFormat} onChange={(event) => setDateFormat(event.target.value as typeof dateFormat)}><option value="iso">ISO dates</option><option value="friendly">Friendly dates</option></select></label></FieldShell>
           <FieldShell id="settings-theme" label="Theme preference"><label className="select-field select-field--full"><select id="settings-theme" value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="dark">Dark</option><option value="light">Light</option><option value="system">Device appearance ready</option></select></label></FieldShell>
           <FieldShell id="settings-notifications" label="Notification preferences">
@@ -64,8 +73,8 @@ export function SettingsPage() {
             </div>
           </FieldShell>
         </div>
-        <p className="callout">Authentication and password changes are frontend prototype state only. No backend security or permanent credential store is implemented.</p>
-        <div className="form-actions form-actions--inline"><button className="button button--primary" type="submit"><Save size={16} /> Save Settings</button></div>
+        <p className="callout">Email changes require confirmation. Passwords are managed by the authentication service.</p>
+        <div className="form-actions form-actions--inline"><button className="button button--primary" type="submit" disabled={saving}><Save size={16} /> {saving ? 'Saving…' : 'Save Settings'}</button></div>
       </form>
     </div>
   );

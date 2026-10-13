@@ -5,16 +5,17 @@ import { StateBlock } from "../../components/ui/StateBlock";
 import { useProjects } from "../admin/projectContext";
 import { isTaskOverdue, statusLabel } from "../admin/taskUtils";
 import { useAuth } from "../auth/authContext";
-import { buildNotifications } from "../operations/operationsUtils";
 import { getEmployeeTaskMetrics, getEmployeeTasks } from "./employeeUtils";
+import { useDateFormat } from '../operations/useDateFormat';
 
-function formatToday() {
-  return new Intl.DateTimeFormat("en", { weekday: "long", month: "short", day: "numeric" }).format(new Date());
+function formatToday(timeZone:string) {
+  return new Intl.DateTimeFormat("en", { timeZone, weekday: "long", month: "short", day: "numeric" }).format(new Date());
 }
 
 export function EmployeeHome() {
+  const formatDate=useDateFormat();
   const { user } = useAuth();
-  const { projects, employees } = useProjects();
+  const { projects, employees, notifications, timeZone } = useProjects();
   const employeeId = user?.identifier ?? "";
   const employeeTasks = getEmployeeTasks(projects, employeeId, employees);
   const metrics = getEmployeeTaskMetrics(employeeTasks);
@@ -26,7 +27,7 @@ export function EmployeeHome() {
     .flatMap((task) => (task.history ?? []).map((activity) => ({ ...activity, projectName: task.projectName, taskId: task.id })))
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 4);
-  const recentNotifications = buildNotifications(projects, employees, user).slice(0, 3);
+  const recentNotifications = notifications.slice(0, 3);
 
   return (
     <div className="page-stack">
@@ -34,7 +35,7 @@ export function EmployeeHome() {
         <div>
           <p className="eyebrow">Employee dashboard</p>
           <h1>Welcome back, {user?.name ?? "teammate"}.</h1>
-          <p>{formatToday()} / Every task, one team, on track.</p>
+          <p>{formatToday(timeZone)} / Every task, one team, on track.</p>
         </div>
         <div className="employee-identity">
           <span className="profile-menu__avatar">{user?.name.split(" ").map((part) => part[0]).join("")}</span>
@@ -71,7 +72,7 @@ export function EmployeeHome() {
                 <article key={task.id}>
                   <span className="mono">{task.id}</span>
                   <strong>{task.title}</strong>
-                  <span className={isTaskOverdue(task) ? "deadline deadline--late" : "deadline"}>{task.deadline}</span>
+                  <span className={isTaskOverdue(task) ? "deadline deadline--late" : "deadline"}>{formatDate(task.deadline)}</span>
                   <span className="status-chip">{statusLabel(task.status)}</span>
                 </article>
               ))}
@@ -103,7 +104,7 @@ export function EmployeeHome() {
               {[...employeeTasks].sort((a, b) => b.assignedDate.localeCompare(a.assignedDate)).slice(0, 4).map((task) => (
                 <article key={task.id}>
                   <strong>{task.title}</strong>
-                  <span>{task.projectName} / assigned {task.assignedDate}</span>
+                  <span>{task.projectName} / assigned {formatDate(task.assignedDate)}</span>
                 </article>
               ))}
             </div>
@@ -138,7 +139,7 @@ export function EmployeeHome() {
                 <article key={activity.id}>
                   <strong>{activity.taskId} / {activity.projectName}</strong>
                   <span>{activity.message}</span>
-                  <span className="mono">{activity.at}</span>
+                  <span className="mono">{formatDate(activity.at)}</span>
                 </article>
               ))}
             </div>

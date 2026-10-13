@@ -4,12 +4,13 @@ import { Bell, CheckCheck, Filter } from "lucide-react";
 import { StateBlock } from "../../components/ui/StateBlock";
 import { useProjects } from "../admin/projectContext";
 import { useAuth } from "../auth/authContext";
-import { buildNotifications, type NotificationCategory } from "./operationsUtils";
+import type { NotificationCategory } from "./operationsUtils";
+import { useDateFormat } from './useDateFormat';
 
 export function NotificationsPage() {
+  const formatDate=useDateFormat();
   const { user } = useAuth();
-  const { projects, employees, readNotificationIds, markNotificationRead, markAllNotificationsRead } = useProjects();
-  const notifications = buildNotifications(projects, employees, user);
+  const { notifications, readNotificationIds, markNotificationRead, markAllNotificationsRead } = useProjects();
   const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all");
   const [category, setCategory] = useState<"all" | NotificationCategory>("all");
   const filtered = useMemo(() => notifications.filter((item) => {
@@ -42,14 +43,14 @@ export function NotificationsPage() {
         <section className="activity-list">
           {filtered.map((item) => {
             const isRead = readNotificationIds.includes(item.id);
-            const isRedAlert = item.id.startsWith("red-alert");
+            const isRedAlert = item.urgent || item.title.startsWith('Red alert') || item.id.startsWith("red-alert");
             return (
               <Link className={`${isRead ? "notification-item notification-item--read" : "notification-item"}${isRedAlert ? " notification-item--alert" : ""}`} key={item.id} to={item.to} onClick={() => markNotificationRead(item.id)}>
                 <Bell size={18} />
                 <div>
                   <strong>{item.title}</strong>
                   <p>{item.message}</p>
-                  <span className="mono">{item.at} / {item.category}</span>
+                  <span className="mono">{formatDate(item.at)} / {item.category}</span>
                 </div>
                 {!isRead && <span className="status-chip status-chip--cyan">Unread</span>}
               </Link>

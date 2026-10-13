@@ -3,19 +3,18 @@ import { AlertTriangle, Edit3, KeyRound, Plus, Search, UserCheck, UserX } from "
 import { FieldShell, TextInput } from "../../components/ui/FormControls";
 import { Toast } from "../../components/ui/Toast";
 import type { EmployeeInput } from "../../data/employeeDirectory";
-import type { TeamPulseEmployee } from "../../data/demoData";
+import type { TeamPulseEmployee } from "../../data/types";
 import { useProjects } from "./projectContext";
 import { statusLabel } from "./taskUtils";
 import { getEmployeeMetrics } from "./employeeMetrics";
-
-const defaultPassword = "Employee@123";
+import { employeeInput } from '../../lib/validation';
 
 function blankEmployee(): EmployeeInput {
-  return { id: "", name: "", email: "", role: "Frontend Engineer", status: "active", demoPassword: defaultPassword, velocity: 80 };
+  return { id: "", name: "", email: "", role: "Frontend Engineer", status: "active", velocity: 0 };
 }
 
 export function EmployeeManagement() {
-  const { projects, employees, createEmployee, updateEmployee, setEmployeeStatus, resetEmployeePassword, reassignTask } = useProjects();
+  const { projects, employees, createEmployee, updateEmployee, setEmployeeStatus, resetEmployeePassword, inviteEmployee, reassignTask } = useProjects();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [editing, setEditing] = useState<TeamPulseEmployee | "new" | null>(null);
@@ -27,13 +26,13 @@ export function EmployeeManagement() {
     return text.includes(query.toLowerCase()) && (statusFilter === "all" || employee.status === statusFilter);
   }), [employees, query, statusFilter]);
 
-  function handleStatus(employee: TeamPulseEmployee, status: TeamPulseEmployee["status"]) {
+  async function handleStatus(employee: TeamPulseEmployee, status: TeamPulseEmployee["status"]) {
     const metrics = getEmployeeMetrics(employee, projects);
     if (status === "inactive" && metrics.pending > 0) {
       setPendingAction({ employee, status });
       return;
     }
-    setEmployeeStatus(employee.id, status);
+    if (!await setEmployeeStatus(employee.id, status, employee.version)) return;
     setToast(`${employee.name} ${status === "active" ? "resumed" : status === "frozen" ? "frozen" : "deactivated"}.`);
   }
 
@@ -43,7 +42,7 @@ export function EmployeeManagement() {
         <div>
           <p className="eyebrow">Admin employee management</p>
           <h1>Engineering Directory</h1>
-          <p>Manage prototype employee access, assignment metrics, and performance profiles.</p>
+          <p>Manage employee access, assignment metrics, and performance profiles.</p>
         </div>
         <button className="button button--primary" type="button" onClick={() => setEditing("new")}><Plus size={16} /> Add Employee</button>
       </section>
@@ -58,9 +57,9 @@ export function EmployeeManagement() {
           </div>
           <div className="confirm-bar__actions">
             <button className="button button--secondary" type="button" onClick={() => setPendingAction(null)}>Cancel</button>
-            <button className="button button--primary" type="button" onClick={() => {
-              setEmployeeStatus(pendingAction.employee.id, pendingAction.status);
-              setToast(`${pendingAction.employee.name} deactivated. Demo login is now blocked.`);
+            <button className="button button--primary" type="button" onClick={async () => {
+              if (!await setEmployeeStatus(pendingAction.employee.id, pendingAction.status, pendingAction.employee.version)) return;
+              setToast(`${pendingAction.employee.name} deactivated. Workspace access is now blocked.`);
               setPendingAction(null);
             }}>Deactivate</button>
           </div>
@@ -76,10 +75,9 @@ export function EmployeeManagement() {
             initial={blankEmployee()}
             existingIds={employees.map((employee) => employee.id)}
             onCancel={() => setEditing(null)}
-            onSubmit={(input) => {
-              const result = createEmployee(input);
+            onSubmit={async (input) => {
+              const result = await createEmployee(input);
               if (!result) {
-                setToast("Duplicate employee ID rejected.");
                 return;
               }
               setToast(`${result.name} saved.`);
@@ -93,7 +91,7 @@ export function EmployeeManagement() {
         <div className="filters-grid">
           <label className="search-field filters-grid__search" htmlFor="employee-search">
             <Search size={16} />
-            <input id="employee-search" placeholder="Search employee, ID, email, role" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input id="employee-search" aria-label="Search employees" placeholder="Search employee, ID, email, role" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <label className="select-field">
             <select aria-label="Account status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
@@ -142,9 +140,9 @@ export function EmployeeManagement() {
                       <select
                         aria-label={`Reassign ${task.id}`}
                         value={task.assigneeId}
-                        onChange={(event) => {
-                          const result = reassignTask(task.id, event.target.value);
-                          setToast(result ? `${task.id} reassigned.` : `${task.id} could not be reassigned.`);
+                        onChange={async (event) => {
+                          const result = await reassignTask(task.id, event.target.value);
+                          if (result) setToast(`${task.id} reassigned.`);
                         }}
                         disabled={task.status === "approved" || task.status === "cancelled"}
                       >
@@ -155,8 +153,9 @@ export function EmployeeManagement() {
                 ))}
               </div>
               <div className="row-actions">
+                {employee.accessRole === 'employee' && <>
                 <button className="icon-button" type="button" title="Edit employee details" aria-label={`Edit ${employee.name}`} onClick={() => setEditing(isEditingEmployee ? null : employee)}><Edit3 size={16} /></button>
-                <button className="icon-button" type="button" title="Reset demo password" aria-label={`Reset password for ${employee.name}`} onClick={() => { resetEmployeePassword(employee.id); setToast(`${employee.name}'s demo password reset to ${defaultPassword}.`); }}><KeyRound size={16} /></button>
+                <button className="icon-button" type="button" title={employee.linked ? 'Request password recovery' : 'Invite employee'} aria-label={employee.linked ? `Reset password for ${employee.name}` : `Invite ${employee.name}`} onClick={async () => { if (await (employee.linked ? resetEmployeePassword(employee.id) : inviteEmployee(employee.id))) setToast('Account email requested.'); }}><KeyRound size={16} /></button>
                 {employee.status === "active" ? (
                   <>
                     <button className="icon-button" type="button" aria-label={`Freeze ${employee.name}`} onClick={() => handleStatus(employee, "frozen")}><UserX size={16} /></button>
@@ -165,13 +164,14 @@ export function EmployeeManagement() {
                 ) : (
                   <button className="icon-button" type="button" aria-label={`Resume ${employee.name}`} onClick={() => handleStatus(employee, "active")}><UserCheck size={16} /></button>
                 )}
+                </>}
               </div>
               {isEditingEmployee && (
                 <section className="employee-card__editor" aria-label={`Edit ${employee.name} details`}>
                   <div className="panel-heading">
                     <div>
                       <h3>Edit employee details</h3>
-                      <p>Pen edits details. Key resets the prototype password.</p>
+                      <p>Pen edits details. Key requests invitation or password recovery.</p>
                     </div>
                   </div>
                   <EmployeeForm
@@ -179,10 +179,9 @@ export function EmployeeManagement() {
                     existingIds={employees.map((item) => item.id)}
                     originalId={employee.id}
                     onCancel={() => setEditing(null)}
-                    onSubmit={(input) => {
-                      const result = updateEmployee(employee.id, input);
+                    onSubmit={async (input) => {
+                      const result = await updateEmployee(employee.id, input, editing ? editing.version : employee.version);
                       if (!result) {
-                        setToast("Duplicate employee ID rejected.");
                         return;
                       }
                       setToast(`${result.name} saved.`);
@@ -199,12 +198,14 @@ export function EmployeeManagement() {
   );
 }
 
-function EmployeeForm({ initial, existingIds, originalId, onSubmit, onCancel }: { initial: EmployeeInput; existingIds: string[]; originalId?: string; onSubmit: (input: EmployeeInput) => void; onCancel: () => void }) {
+function EmployeeForm({ initial, existingIds, originalId, onSubmit, onCancel }: { initial: EmployeeInput; existingIds: string[]; originalId?: string; onSubmit: (input: EmployeeInput) => Promise<void>; onCancel: () => void }) {
   const [form, setForm] = useState<EmployeeInput>(initial);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     const id = form.id.trim().toUpperCase();
     if (!id || !form.name.trim() || !form.role.trim()) {
       setError("Employee ID, name, and role are required.");
@@ -214,7 +215,9 @@ function EmployeeForm({ initial, existingIds, originalId, onSubmit, onCancel }: 
       setError("Employee ID must be unique.");
       return;
     }
-    onSubmit({ ...form, id });
+    if (!employeeInput.safeParse({...form,id}).success) {setError('Enter a valid employee code, name, email and job title.');return;}
+    setSaving(true);
+    try { await onSubmit({ ...form, id }); } finally { setSaving(false); }
   }
 
   return (
@@ -234,13 +237,10 @@ function EmployeeForm({ initial, existingIds, originalId, onSubmit, onCancel }: 
             </select>
           </label>
         </FieldShell>
-        <FieldShell id="employee-password" label="Demo password" hint="Never shown in lists">
-          <TextInput id="employee-password" type="password" value={form.demoPassword} onChange={(event) => setForm({ ...form, demoPassword: event.target.value })} />
-        </FieldShell>
       </div>
       <div className="form-actions form-actions--inline">
         <button className="button button--secondary" type="button" onClick={onCancel}>Cancel</button>
-        <button className="button button--primary" type="submit">Save Employee</button>
+        <button className="button button--primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save Employee'}</button>
       </div>
     </form>
   );

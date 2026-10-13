@@ -7,6 +7,7 @@ import { useProjects } from "../admin/projectContext";
 import { isTaskOverdue, statusLabel } from "../admin/taskUtils";
 import { useAuth } from "../auth/authContext";
 import { canEmployeeSubmit, getEmployeeTasks, isValidSubmissionUrl } from "./employeeUtils";
+import { useDateFormat } from '../operations/useDateFormat';
 
 type FormErrors = {
   url?: string;
@@ -15,6 +16,7 @@ type FormErrors = {
 };
 
 export function EmployeeTaskDetail() {
+  const formatDate=useDateFormat();
   const { taskId } = useParams();
   const { user } = useAuth();
   const { projects, employees, submitTask, reportDelay } = useProjects();
@@ -33,8 +35,9 @@ export function EmployeeTaskDetail() {
   const overdue = task.status === "overdue" || isTaskOverdue(task);
   const delays = task.delays ?? (task.delay ? [task.delay] : []);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!task) return;
     const nextErrors: FormErrors = {};
     if (!url.trim()) nextErrors.url = "Work URL is required.";
     else if (!isValidSubmissionUrl(url.trim())) nextErrors.url = "Enter a valid http or https URL.";
@@ -43,28 +46,27 @@ export function EmployeeTaskDetail() {
     if (Object.keys(nextErrors).length > 0 || saving) return;
 
     setSaving("submit");
-    const result = submitTask(task.id, { url: url.trim(), note: note.trim() });
+    const result = await submitTask(task.id, { url: url.trim(), note: note.trim() });
     setSaving(null);
     if (!result) {
-      setToast("This task cannot be submitted in its current state.");
       return;
     }
     setNote("");
     setToast(task.status === "changes_requested" ? "Resubmission sent for admin review." : "Submission sent for admin review.");
   }
 
-  function handleDelay(event: FormEvent<HTMLFormElement>) {
+  async function handleDelay(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!task) return;
     const nextErrors: FormErrors = {};
     if (!reason.trim()) nextErrors.reason = "Delay reason is required.";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0 || saving) return;
 
     setSaving("delay");
-    const result = reportDelay(task.id, reason.trim());
+    const result = await reportDelay(task.id, reason.trim());
     setSaving(null);
     if (!result) {
-      setToast("This task cannot report a delay in its current state.");
       return;
     }
     setReason("");
@@ -93,13 +95,13 @@ export function EmployeeTaskDetail() {
           <span className="status-chip">{statusLabel(task.status)}</span>
         </div>
         <div className="workspace-meta">
-          <span>Assigned {task.assignedDate}</span>
-          <span className={overdue ? "deadline deadline--late" : "deadline"}>Due {task.deadline}</span>
+          <span>Assigned {formatDate(task.assignedDate)}</span>
+          <span className={overdue ? "deadline deadline--late" : "deadline"}>Due {formatDate(task.deadline)}</span>
           <span>{task.assigneeName}</span>
         </div>
         {task.review?.decision === "changes_requested" && <p className="callout callout--warning">Changes requested: {task.review.feedback}</p>}
-        {task.review?.decision === "approved" && <p className="callout"><CheckCircle2 size={16} /> Approved {task.review.reviewedAt}: {task.review.feedback}</p>}
-        {task.delay && <p className="callout callout--warning">Latest delay: {task.delay.reason} ({task.delay.reportedAt})</p>}
+        {task.review?.decision === "approved" && <p className="callout"><CheckCircle2 size={16} /> Approved {formatDate(task.review.reviewedAt)}: {task.review.feedback}</p>}
+        {task.delay && <p className="callout callout--warning">Latest delay: {task.delay.reason} ({formatDate(task.delay.reportedAt)})</p>}
       </section>
 
       <section className="dashboard-grid">
@@ -149,7 +151,7 @@ export function EmployeeTaskDetail() {
               <article key={submission.id}>
                 <strong>{submission.url}</strong>
                 <span>{submission.note}</span>
-                <span className="mono">{submission.submittedAt}</span>
+                <span className="mono">{formatDate(submission.submittedAt)}</span>
               </article>
             )) : <p>No submissions yet.</p>}
           </div>
@@ -161,7 +163,7 @@ export function EmployeeTaskDetail() {
           <div className="activity-list">
             {delays.length ? delays.map((delay) => (
               <article key={`${delay.reportedAt}-${delay.reason}`}>
-                <strong>{delay.reportedAt}</strong>
+                <strong>{formatDate(delay.reportedAt)}</strong>
                 <span>{delay.reason}</span>
               </article>
             )) : <p>No delays reported.</p>}

@@ -4,24 +4,25 @@ import { CalendarClock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../auth/authContext";
 import { useProjects } from "../admin/projectContext";
 import { isTaskOverdue, statusLabel } from "../admin/taskUtils";
+import { organizationDate, addCalendarDays } from '../../lib/validation';
+import { buildCalendarDays, moveCalendarMonth } from './calendarUtils';
+import { useDateFormat } from '../operations/useDateFormat';
 
 type ViewMode = "month" | "week" | "day";
 
-const today = "2026-10-12";
-
 function addDays(date: string, days: number) {
-  const next = new Date(`${date}T00:00:00`);
-  next.setDate(next.getDate() + days);
-  return next.toISOString().slice(0, 10);
+  return addCalendarDays(date,days);
 }
 
 function monthLabel(date: string) {
-  return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date(`${date}T00:00:00`));
+  return new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone:'UTC' }).format(new Date(`${date}T00:00:00Z`));
 }
 
 export function CalendarPage({ panel }: { panel: "admin" | "employee" }) {
+  const formatDate=useDateFormat();
   const { user } = useAuth();
-  const { projects, employees } = useProjects();
+  const { projects, employees, timeZone } = useProjects();
+  const today=organizationDate(new Date().toISOString(),timeZone);
   const [anchor, setAnchor] = useState(today);
   const [view, setView] = useState<ViewMode>("month");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -45,11 +46,11 @@ export function CalendarPage({ panel }: { panel: "admin" | "employee" }) {
     (statusFilter === "all" || task.status === statusFilter)
   ), [employeeFilter, employees, panel, projectFilter, projects, statusFilter, techFilter, user?.identifier]);
 
-  const visibleDays = buildDays(anchor, view);
+  const visibleDays = buildCalendarDays(anchor, view);
   const selected = events.find((event) => event.id === selectedId) ?? events.find((event) => visibleDays.includes(event.deadline));
 
   function move(direction: number) {
-    setAnchor(addDays(anchor, direction * (view === "month" ? 30 : view === "week" ? 7 : 1)));
+    setAnchor(view==='month' ? moveCalendarMonth(anchor,direction) : addDays(anchor,direction*(view==='week'?7:1)));
   }
 
   return (
@@ -62,7 +63,7 @@ export function CalendarPage({ panel }: { panel: "admin" | "employee" }) {
         </div>
         <div className="calendar-controls">
           <button className="icon-button" type="button" aria-label="Previous" onClick={() => move(-1)}><ChevronLeft size={16} /></button>
-          <strong>{view === "month" ? monthLabel(anchor) : anchor}</strong>
+          <strong>{view === "month" ? monthLabel(anchor) : formatDate(anchor)}</strong>
           <button className="icon-button" type="button" aria-label="Next" onClick={() => move(1)}><ChevronRight size={16} /></button>
           <button className="button button--secondary" type="button" onClick={() => setAnchor(today)}>Today</button>
         </div>
@@ -107,7 +108,7 @@ export function CalendarPage({ panel }: { panel: "admin" | "employee" }) {
                 <strong>{selected.title}</strong>
                 <span>{selected.projectName} / {selected.assigneeName}</span>
                 <span className="status-chip">{statusLabel(selected.status)}</span>
-                <span className={isTaskOverdue(selected) ? "deadline deadline--late" : "deadline"}>Due {selected.deadline}</span>
+                <span className={isTaskOverdue(selected) ? "deadline deadline--late" : "deadline"}>Due {formatDate(selected.deadline)}</span>
                 <p>{selected.description}</p>
               </article>
             </div>
@@ -116,18 +117,6 @@ export function CalendarPage({ panel }: { panel: "admin" | "employee" }) {
       </section>
     </div>
   );
-}
-
-function buildDays(anchor: string, view: ViewMode) {
-  if (view === "day") return [anchor];
-  if (view === "week") return Array.from({ length: 7 }, (_, index) => addDays(anchor, index));
-  const start = new Date(`${anchor.slice(0, 8)}01T00:00:00`);
-  const offset = (start.getDay() + 6) % 7;
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() - offset + index);
-    return date.toISOString().slice(0, 10);
-  });
 }
 
 function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {

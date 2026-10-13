@@ -5,7 +5,7 @@ import { useAuth } from "../auth/authContext";
 const adminFaqs = [
   ["How do approvals work?", "Open a submitted task, review the URL and completion note, then approve or request changes with feedback."],
   ["When is a task completed?", "A task counts as completed only after Admin approval. Submitted and in-progress work does not inflate project progress."],
-  ["How do I manage employees?", "Use Employee Management to add, edit, deactivate, reactivate, or reset prototype demo passwords."],
+  ["How do I manage employees?", "Use Employee Management to add, edit, freeze, deactivate or reactivate employees. The key requests an invitation for a new account or password recovery for a linked account."],
   ["How do reports stay accurate?", "Reports derive from the same project and task records used by dashboards, calendars, and task management."],
 ];
 
@@ -25,7 +25,7 @@ export function HelpPage() {
         <div>
           <p className="eyebrow">{user?.role} help</p>
           <h1>Help & FAQs</h1>
-          <p>Role-specific guidance for Team Pulse task workflows and prototype boundaries.</p>
+          <p>Role-specific guidance for Team Pulse task workflows.</p>
         </div>
       </section>
       <section className="dashboard-grid">

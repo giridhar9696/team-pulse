@@ -7,8 +7,10 @@ import { TaskForm } from "./TaskForm";
 import { useProjects } from "./projectContext";
 import type { TaskMutationInput } from "./projectContext";
 import { getTaskRecords, isTaskOverdue, statusLabel, type TaskRecord } from "./taskUtils";
+import { useDateFormat } from '../operations/useDateFormat';
 
 export function AdminTasks() {
+  const formatDate=useDateFormat();
   const { projects, employees, createTask, updateTask, cancelTask } = useProjects();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
@@ -71,17 +73,19 @@ export function AdminTasks() {
             <h2>{editing === "new" ? "Create task" : `Edit ${editing.id}`}</h2>
           </div>
           <TaskForm
+            key={editing === 'new' ? 'new' : editing.id}
             projects={projects.map((project) => ({ id: project.id, name: project.name }))}
             employees={employees}
             initial={editing === "new" ? undefined : mutationInput(editing)}
             submitLabel={editing === "new" ? "Create Task" : "Save Changes"}
             onCancel={() => setEditing(null)}
-            onSubmit={(input) => {
+            onSubmit={async (input) => {
               if (editing === "new") {
-                const task = createTask(input);
+                const task = await createTask(input);
+                if (!task) return;
                 setToast(`${task.id} created.`);
               } else {
-                updateTask(editing.id, input);
+                if (!await updateTask(editing.id, input, editing.version)) return;
                 setToast(`${editing.id} updated.`);
               }
               setEditing(null);
@@ -94,7 +98,7 @@ export function AdminTasks() {
         <div className="filters-grid filters-grid--tasks">
           <label className="search-field filters-grid__search" htmlFor="task-search">
             <Search size={16} />
-            <input id="task-search" name="task-search" placeholder="Search task, project, assignee" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input id="task-search" name="task-search" aria-label="Search tasks" placeholder="Search task, project, assignee" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <Select label="Project filter" value={projectFilter} onChange={setProjectFilter}>
             <option value="all">All projects</option>
@@ -141,11 +145,11 @@ export function AdminTasks() {
               </div>
               <span>{task.assigneeName}</span>
               <span className="status-chip">{statusLabel(task.status)}</span>
-              <span className={isTaskOverdue(task) ? "deadline deadline--late" : "deadline"}>{task.deadline}</span>
+              <span className={isTaskOverdue(task) ? "deadline deadline--late" : "deadline"}>{formatDate(task.deadline)}</span>
               <div className="row-actions">
                 <button className="icon-button" type="button" aria-label={`View ${task.id}`} onClick={() => navigate(`/admin/tasks/${task.id}`)}><Eye size={16} /></button>
                 <button className="icon-button" type="button" aria-label={`Edit ${task.id}`} onClick={() => setEditing(task)} disabled={task.status === "approved" || task.status === "cancelled"}><Edit3 size={16} /></button>
-                <button className="icon-button" type="button" aria-label={`Cancel ${task.id}`} onClick={() => { cancelTask(task.id); setToast(`${task.id} cancelled.`); }} disabled={task.status === "approved" || task.status === "cancelled"}><XCircle size={16} /></button>
+                <button className="icon-button" type="button" aria-label={`Cancel ${task.id}`} onClick={async () => { if (await cancelTask(task.id)) setToast(`${task.id} cancelled.`); }} disabled={task.status === "approved" || task.status === "cancelled"}><XCircle size={16} /></button>
               </div>
             </article>
           ))}

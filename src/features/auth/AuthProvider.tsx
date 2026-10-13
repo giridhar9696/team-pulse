@@ -9,12 +9,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(configurationError);
   const generation = useRef(0);
+  const authIntent = useRef(0);
   const identity = useRef<string | null>(null);
   const cache = useQueryClient();
   const invalidateRequests = useCallback(() => { ++generation.current; }, []);
   const acceptUser = useCallback((next: AppUser | null) => {
-    if (identity.current !== (next?.id ?? null)) cache.clear();
-    identity.current = next?.id ?? null;
+    const scope=next ? `${next.id}:${next.organizationId}:${next.role}:${next.identifier}` : null;
+    if (identity.current !== scope) cache.clear();
+    identity.current = scope;
     setUser(next);
   }, [cache]);
   const refreshUser = useCallback(async () => {
@@ -33,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) { setLoading(false); return; }
     let alive = true;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session || event === 'SIGNED_OUT') { ++generation.current; acceptUser(null); setLoading(false); }
+      if (!session || event === 'SIGNED_OUT') { if (event==='SIGNED_OUT') ++authIntent.current; ++generation.current; acceptUser(null); setLoading(false); }
       else {
         // Return before another Supabase request acquires the auth callback's lock.
         queueMicrotask(() => { if (alive) void refreshUser(); });
@@ -46,14 +48,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { alive = false; invalidateRequests(); subscription.unsubscribe(); window.removeEventListener('focus', onFocus); window.clearInterval(timer); };
   }, [acceptUser, refreshUser, invalidateRequests]);
   async function login(payload: LoginPayload) {
+    const attempt=++authIntent.current;
+    ++generation.current;
+    try {
     const client = requireSupabase();
     const { error: authError } = await client.auth.signInWithPassword({ email: payload.identifier.trim(), password: payload.password });
     if (authError) throw new Error('Unable to sign in. Check your email and password.');
     const next = await resolveUser();
     if (!next) { await client.auth.signOut(); throw new Error('An active organization account is required. Contact your administrator.'); }
+    if (attempt!==authIntent.current) throw new Error('Sign-in changed. Please try again.');
     acceptUser(next); setError(null); return next;
+    } finally {setLoading(false);}
   }
   async function logout() {
+    ++authIntent.current;
+    ++generation.current;
     const { error: logoutError } = await requireSupabase().auth.signOut();
     if (logoutError) throw new Error('Unable to log out. Please retry.');
     ++generation.current; acceptUser(null);

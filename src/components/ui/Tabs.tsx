@@ -23,6 +23,14 @@ export function Tabs<T extends string>({ value, items, onChange, label }: TabsPr
           type="button"
           role="tab"
           aria-selected={item.value === value}
+          tabIndex={item.value === value ? 0 : -1}
+          onKeyDown={event=>{
+            const index=items.findIndex(tab=>tab.value===item.value);
+            const next=event.key==='ArrowRight' ? (index+1)%items.length : event.key==='ArrowLeft' ? (index-1+items.length)%items.length : event.key==='Home' ? 0 : event.key==='End' ? items.length-1 : null;
+            if (next===null) return;
+            event.preventDefault();onChange(items[next].value);
+            (event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus();
+          }}
           onClick={() => onChange(item.value)}
         >
           {item.icon}

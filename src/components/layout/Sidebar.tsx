@@ -71,7 +71,7 @@ export function Sidebar({ panel }: SidebarProps) {
       </div>
       <div className="sidebar__note">
         <strong>{panel === "admin" ? "Admin" : "Employee"} panel</strong>
-        <span>Prototype frontend guard</span>
+        <span>Your organization workspace</span>
       </div>
     </aside>
   );

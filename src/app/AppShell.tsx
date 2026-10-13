@@ -1,11 +1,10 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Bell, Command, LogOut, PanelLeft, Search, UserRound, X } from "lucide-react";
 import { Sidebar } from "../components/layout/Sidebar";
 import { BrandMark } from "../components/ui/BrandMark";
 import { useAuth } from "../features/auth/authContext";
 import { useProjects } from "../features/admin/projectContext";
-import { buildNotifications } from "../features/operations/operationsUtils";
 
 type AppShellProps = {
   panel: "admin" | "employee";
@@ -15,12 +14,20 @@ export function AppShell({ panel }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { projects, employees, readNotificationIds } = useProjects();
+  const { notifications, readNotificationIds, loading, busy, error, loadError, hasData, refresh, dismissError } = useProjects();
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
   const [logoutError, setLogoutError] = useState('');
-  const unreadCount = useMemo(() => buildNotifications(projects, employees, user).filter((item) => !readNotificationIds.includes(item.id)).length, [employees, projects, readNotificationIds, user]);
+  const mobilePanel=useRef<HTMLDivElement>(null);
+  const menuTrigger=useRef<HTMLButtonElement>(null);
+  useEffect(()=>{
+    if (!mobileOpen) return;
+    const trigger=menuTrigger.current;
+    mobilePanel.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    return ()=>trigger?.focus();
+  },[mobileOpen]);
+  const unreadCount = notifications.filter(item=>!readNotificationIds.includes(item.id)).length;
 
   const pageTitle = useMemo(() => {
     const segment = location.pathname.split("/").filter(Boolean).at(-1);
@@ -48,7 +55,16 @@ export function AppShell({ panel }: AppShellProps) {
     <div className="app-shell">
       <Sidebar panel={panel} />
       {mobileOpen && (
-        <div className="mobile-nav" role="dialog" aria-modal="true" aria-label="Navigation menu">
+        <div ref={mobilePanel} className="mobile-nav" role="dialog" aria-modal="true" aria-label="Navigation menu"
+          onClick={event=>{if ((event.target as Element).closest('a')) setMobileOpen(false);}}
+          onKeyDown={event=>{
+            if (event.key==='Escape') {event.preventDefault();setMobileOpen(false);return;}
+            if (event.key!=='Tab') return;
+            const controls=event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]');
+            const first=controls[0],last=controls[controls.length-1];
+            if (event.shiftKey&&document.activeElement===first) {event.preventDefault();last?.focus();}
+            else if (!event.shiftKey&&document.activeElement===last) {event.preventDefault();first?.focus();}
+          }}>
           <div className="mobile-nav__panel">
             <button className="icon-button mobile-nav__close" aria-label="Close navigation" onClick={() => setMobileOpen(false)}>
               <X size={19} />
@@ -60,7 +76,7 @@ export function AppShell({ panel }: AppShellProps) {
       <div className="app-main">
         <header className="topbar">
           <div className="topbar__brand">
-            <button className="icon-button topbar__menu" aria-label="Open navigation" onClick={() => setMobileOpen(true)}>
+            <button ref={menuTrigger} className="icon-button topbar__menu" aria-label="Open navigation" onClick={() => setMobileOpen(true)}>
               <PanelLeft size={20} />
             </button>
             <div>
@@ -79,6 +95,7 @@ export function AppShell({ panel }: AppShellProps) {
               <input
                 id="global-search"
                 name="global-search"
+                aria-label="Search tasks, projects, people"
                 placeholder="Search tasks, projects, people"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -128,7 +145,8 @@ export function AppShell({ panel }: AppShellProps) {
         </header>
         <main className="page-shell">
           {logoutError && <p role="alert">{logoutError}</p>}
-          <Outlet />
+          {error && <div role="alert" className="callout callout--warning">{error} <button type="button" onClick={()=>void refresh()}>Refresh</button> {!loadError && <button type="button" onClick={dismissError}>Dismiss</button>}</div>}
+          {loading ? <p role="status">Loading your workspace…</p> : loadError && !hasData ? <p>Workspace data could not be loaded.</p> : <fieldset className="workspace-content" disabled={busy || loadError} aria-busy={busy}><Outlet /></fieldset>}
         </main>
       </div>
     </div>

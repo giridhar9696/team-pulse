@@ -4,20 +4,21 @@ import { Search } from "lucide-react";
 import { StateBlock } from "../../components/ui/StateBlock";
 import { useProjects } from "../admin/projectContext";
 import { useAuth } from "../auth/authContext";
-import { buildActivity } from "./operationsUtils";
+import { todayDate, addCalendarDays } from '../../lib/validation';
+import { useDateFormat } from './useDateFormat';
 
 export function ActivityLogPage() {
+  const formatDate=useDateFormat();
   const { user } = useAuth();
-  const { projects, employees } = useProjects();
-  const activity = buildActivity(projects, employees, user);
+  const { projects, employees, activity } = useProjects();
   const [employeeFilter, setEmployeeFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
-  const [from, setFrom] = useState("2026-09-01");
-  const [to, setTo] = useState("2026-12-31");
+  const [from, setFrom] = useState(addCalendarDays(todayDate(),-30));
+  const [to, setTo] = useState(todayDate());
   const filtered = useMemo(() => activity.filter((item) =>
-    item.at.slice(0, 10) >= from &&
-    item.at.slice(0, 10) <= to &&
+    (item.day??item.at.slice(0,10)) >= from &&
+    (item.day??item.at.slice(0,10)) <= to &&
     (employeeFilter === "all" || item.employeeId === employeeFilter) &&
     (projectFilter === "all" || item.projectId === projectFilter) &&
     (actionFilter === "all" || item.action === actionFilter)
@@ -44,7 +45,7 @@ export function ActivityLogPage() {
       </section>
       {filtered.length === 0 ? <StateBlock title="No activity">No activity matches the active filters.</StateBlock> : (
         <section className="activity-list">
-          {filtered.map((item) => <Link className="activity-row" key={item.id} to={item.to}><span className="mono">{item.at}</span><strong>{item.action}</strong><p>{item.description}</p>{item.projectName && <span className="status-chip">{item.projectName}</span>}</Link>)}
+          {filtered.map((item) => <Link className="activity-row" key={item.id} to={item.to}><span className="mono">{formatDate(item.at)}</span><strong>{item.action}</strong><p>{item.description}</p>{item.projectName && <span className="status-chip">{item.projectName}</span>}</Link>)}
         </section>
       )}
     </div>

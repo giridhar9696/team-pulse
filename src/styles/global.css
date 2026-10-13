@@ -598,6 +598,7 @@ p {
   color: var(--color-text-muted);
   font-family: var(--font-mono);
   font-size: 0.78rem;
+  overflow-wrap: anywhere;
 }
 
 .action-row {
@@ -1809,3 +1810,5 @@ p {
     width: 100%;
   }
 }
+/* Keep the existing layout while disabling controls during a confirmed save. */
+.workspace-content { border: 0; padding: 0; margin: 0; min-width: 0; }

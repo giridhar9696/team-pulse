@@ -11,13 +11,16 @@ import {
 import { StateBlock } from "../../components/ui/StateBlock";
 import { useProjects } from "./projectContext";
 import { getDashboardStats, getProjectProgress, getTasksByStatus } from "./projectMetrics";
+import { isTaskOverdue } from './taskUtils';
+import { useDateFormat } from '../operations/useDateFormat';
 
 export function AdminHome() {
-  const { projects, employees } = useProjects();
+  const formatDate=useDateFormat();
+  const { projects, employees, notifications } = useProjects();
   const navigate = useNavigate();
   const stats = getDashboardStats(projects);
   const reviewTasks = getTasksByStatus(projects, ["submitted", "review"]);
-  const overdueTasks = getTasksByStatus(projects, ["overdue"]);
+  const overdueTasks = projects.flatMap(project=>project.tasks.map(task=>({...task,projectName:project.name}))).filter(task=>task.status==='overdue'||isTaskOverdue(task));
   const upcomingTasks = projects
     .flatMap((project) => project.tasks.map((task) => ({ ...task, projectName: project.name })))
     .filter((task) => task.status !== "approved")
@@ -34,7 +37,7 @@ export function AdminHome() {
         <div>
           <p className="eyebrow">Admin control surface</p>
           <h1>Operations dashboard</h1>
-          <p>Live prototype metrics derived from the shared project and task model.</p>
+          <p>Live metrics derived from shared project and task records.</p>
         </div>
         <div className="action-row">
           <Link className="button button--primary" to="/admin/projects/new">
@@ -106,14 +109,14 @@ export function AdminHome() {
         </Panel>
 
         <Panel title="Recent work submissions">
-          {recentSubmissions.length ? <TaskList tasks={recentSubmissions} /> : <StateBlock title="No submissions">Submitted work will appear here after Prompt 4.</StateBlock>}
+          {recentSubmissions.length ? <TaskList tasks={recentSubmissions} /> : <StateBlock title="No submissions">Submitted work will appear here for review.</StateBlock>}
         </Panel>
 
         <Panel title="Recent activity">
           <div className="activity-list">
             {recentActivity.map((item) => (
               <article key={item.id}>
-                <span className="mono">{item.at}</span>
+                <span className="mono">{formatDate(item.at)}</span>
                 <strong>{item.projectName}</strong>
                 <p>{item.message}</p>
               </article>
@@ -123,14 +126,7 @@ export function AdminHome() {
 
         <Panel title="Important notifications">
           <div className="activity-list">
-            {projects.flatMap((project) =>
-              project.notifications.map((note) => (
-                <article key={`${project.id}-${note}`}>
-                  <strong>{project.name}</strong>
-                  <p>{note}</p>
-                </article>
-              )),
-            )}
+            {notifications.slice(0,5).map(notice=><article key={notice.id}><strong>{notice.title}</strong><p>{notice.message}</p></article>)}
           </div>
         </Panel>
       </section>
@@ -161,6 +157,7 @@ function Panel({ title, action, children }: { title: string; action?: React.Reac
 }
 
 function TaskList({ tasks }: { tasks: Array<{ id: string; title: string; projectName: string; deadline: string; status: string }> }) {
+  const formatDate=useDateFormat();
   return (
     <div className="compact-list">
       {tasks.map((task) => (
@@ -169,7 +166,7 @@ function TaskList({ tasks }: { tasks: Array<{ id: string; title: string; project
           <strong>{task.title}</strong>
           <span>{task.projectName}</span>
           <span className="status-chip">{task.status}</span>
-          <span className="mono">{task.deadline}</span>
+          <span className="mono">{formatDate(task.deadline)}</span>
         </article>
       ))}
     </div>

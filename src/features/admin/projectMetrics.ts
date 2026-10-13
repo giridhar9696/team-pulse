@@ -1,4 +1,5 @@
-import type { ProjectTask, TaskStatus, TeamPulseProject } from "../../data/demoData";
+import type { ProjectTask, TaskStatus, TeamPulseProject } from "../../data/types";
+import { isTaskOverdue } from './taskUtils';
 
 const completeStatuses: TaskStatus[] = ["approved"];
 const activeStatuses: TaskStatus[] = ["pending", "in_progress", "submitted", "review", "changes_requested", "overdue"];
@@ -13,6 +14,7 @@ export function getRequiredTasks(project: TeamPulseProject) {
 }
 
 export function getProjectProgress(project: TeamPulseProject) {
+  if (project.summary) return project.summary.progress;
   const requiredTasks = getRequiredTasks(project).filter((task) => task.status !== "cancelled");
   if (requiredTasks.length === 0) {
     return 0;
@@ -22,12 +24,13 @@ export function getProjectProgress(project: TeamPulseProject) {
   return Math.round((approved / requiredTasks.length) * 100);
 }
 
-export function getDerivedProjectStatus(project: TeamPulseProject) {
+export function getDerivedProjectStatus(project: TeamPulseProject): TeamPulseProject['status'] {
+  if (project.summary) return project.summary.status;
   const requiredTasks = getRequiredTasks(project).filter((task) => task.status !== "cancelled");
   if (requiredTasks.length > 0 && requiredTasks.every((task) => task.status === "approved")) {
     return "Completed";
   }
-  if (requiredTasks.some((task) => task.status === "overdue")) {
+  if (requiredTasks.some((task) => task.status === "overdue" || isTaskOverdue(task))) {
     return "At Risk";
   }
   if (requiredTasks.some((task) => task.status === "submitted" || task.status === "review" || task.status === "changes_requested")) {
@@ -48,7 +51,7 @@ export function getDashboardStats(projects: TeamPulseProject[]) {
   const tasks = projects.flatMap((project) => project.tasks);
   const approved = tasks.filter((task) => task.status === "approved").length;
   const pending = tasks.filter((task) => activeStatuses.includes(task.status)).length;
-  const overdue = tasks.filter((task) => task.status === "overdue").length;
+  const overdue = tasks.filter((task) => task.status === "overdue" || isTaskOverdue(task)).length;
 
   return {
     totalProjects: projects.length,
