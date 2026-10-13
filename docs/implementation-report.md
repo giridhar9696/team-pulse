@@ -47,7 +47,7 @@ Delivery/tests: `tests/*`, `e2e/*`, `vitest.config.ts`, both Playwright configs,
 | npm run security:check | Passed production-import/storage/rendering and secret-pattern checks |
 | npm run security:bundle | No privileged credentials in eight build files; scanner self-checks executed |
 | npm audit --audit-level=moderate | Zero reported vulnerabilities |
-| Gitleaks 8.30.1 git --redact | Initial eight-commit scan found no leaks; final checkpoint scan recorded below |
+| Gitleaks 8.30.1 git --redact | Nine commits through implementation checkpoint 45bf0c1 scanned; no leaks found |
 | npm run test:e2e:staging -- --list | Refused missing TEAM_PULSE_STAGING_URL before any hosted test operation |
 | npm run deploy:check | Correctly refused missing live configuration; no credential values printed |
 | docker info | Docker daemon unavailable; full local Supabase runtime not run |
@@ -72,4 +72,4 @@ For the first real employee: follow `docs/deployment.md` to set up the dedicated
 
 ## Final checkpoint evidence
 
-Record final commit and full-history secret scan after checkpoint creation. No production release approval has been requested because the required hosted checks are not complete.
+Implementation checkpoint: `45bf0c1` on the existing `main` branch. Earlier checkpoints: `e4d68a1` (baseline audit), `494f31e` (schema/authorization), `6071632` (verified Auth). All local checks above passed on the implementation tree. Gitleaks 8.30.1 scanned all nine commits through `45bf0c1`, approximately 706 KB, and found no leaks. The accompanying documentation checkpoint records this evidence; no runtime changes follow the verified implementation. No production release approval has been requested because the required hosted checks are not complete. Nothing was pushed or remotely deployed.
