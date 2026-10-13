@@ -1,11 +1,11 @@
-import { FormEvent, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Badge, Eye, EyeOff, KeyRound, ShieldCheck, UserRound, Zap } from "lucide-react";
+import { type FormEvent, useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Badge, Eye, EyeOff, KeyRound, ShieldCheck, UserRound } from "lucide-react";
 import { BrandMark } from "../../components/ui/BrandMark";
 import { FieldShell, TextInput } from "../../components/ui/FormControls";
 import { Tabs } from "../../components/ui/Tabs";
 import { Toast } from "../../components/ui/Toast";
-import { demoCredentials } from "../../data/demoData";
+import { configurationError } from '../../lib/supabase';
 import { useAuth } from "./authContext";
 import type { UserRole } from "./authService";
 
@@ -16,7 +16,7 @@ type LoginErrors = {
 
 export function LoginPage() {
   const [role, setRole] = useState<UserRole>("employee");
-  const [identifier, setIdentifier] = useState(demoCredentials.employee.employeeId);
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
@@ -34,16 +34,7 @@ export function LoginPage() {
 
   function selectRole(nextRole: UserRole) {
     setRole(nextRole);
-    setIdentifier(nextRole === "admin" ? demoCredentials.admin.email : demoCredentials.employee.employeeId);
     setPassword("");
-    setErrors({});
-    setStatus(null);
-  }
-
-  function fillDemo(nextRole: UserRole) {
-    setRole(nextRole);
-    setIdentifier(nextRole === "admin" ? demoCredentials.admin.email : demoCredentials.employee.employeeId);
-    setPassword(nextRole === "admin" ? demoCredentials.admin.password : demoCredentials.employee.password);
     setErrors({});
     setStatus(null);
   }
@@ -52,7 +43,9 @@ export function LoginPage() {
     const nextErrors: LoginErrors = {};
 
     if (!identifier.trim()) {
-      nextErrors.identifier = role === "admin" ? "Admin email is required." : "Employee ID is required.";
+      nextErrors.identifier = "Account email is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier.trim())) {
+      nextErrors.identifier = "Enter your account email.";
     }
 
     if (!password) {
@@ -80,26 +73,25 @@ export function LoginPage() {
       navigate(requestedPath.startsWith(`/${authenticated.role}`) ? requestedPath : `/${authenticated.role}`, {
         replace: true,
       });
-    } catch {
-      setStatus("Credentials did not match the selected demo role.");
+    } catch (failure) {
+      setStatus(failure instanceof Error ? failure.message : "Unable to sign in. Please retry.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const identifierLabel = role === "admin" ? "Admin email" : "Employee ID";
-  const identifierHint = role === "admin" ? demoCredentials.admin.email : demoCredentials.employee.employeeId;
+  const identifierLabel = "Account email";
+  const identifierHint = "you@organization.com";
 
   return (
     <main className="login-page">
       <section className="login-panel" aria-labelledby="login-title">
         <BrandMark stacked />
         <div className="login-panel__intro">
-          <p className="eyebrow">AUTH-v2.8 / Prototype access boundary</p>
+          <p className="eyebrow">Your team workspace</p>
           <h1 id="login-title">Every Task. One Team. On Track.</h1>
           <p>
-            Role-aware demo access for the shared UI stage. Frontend route guards
-            are for prototype flow only and are not production security.
+            Sign in with your organization account to manage projects and assigned work.
           </p>
         </div>
         <div className="pulse-mesh" aria-hidden="true">
@@ -112,16 +104,16 @@ export function LoginPage() {
           <article>
             <ShieldCheck size={20} />
             <h2>Admin</h2>
-            <p>{demoCredentials.admin.email}</p>
+            <p>Manage projects and review work.</p>
           </article>
           <article>
             <UserRound size={20} />
             <h2>Employee</h2>
-            <p>{demoCredentials.employee.employeeId}</p>
+            <p>Track assignments and submit work.</p>
           </article>
         </div>
       </section>
-      <form className="login-card" aria-label="Demo login form" onSubmit={handleSubmit} noValidate>
+      <form className="login-card" aria-label="Login form" onSubmit={handleSubmit} noValidate>
         <div>
           <p className="eyebrow">Select clearance identity</p>
           <Tabs
@@ -134,16 +126,7 @@ export function LoginPage() {
             ]}
           />
         </div>
-        <div className="quick-fill">
-          <button type="button" onClick={() => fillDemo("employee")}>
-            <Zap size={15} />
-            Quick fill Employee
-          </button>
-          <button type="button" onClick={() => fillDemo("admin")}>
-            <ShieldCheck size={15} />
-            Quick fill Admin
-          </button>
-        </div>
+        {configurationError && <p role="alert">{configurationError}</p>}
         {status && (
           <Toast
             tone="error"
@@ -156,6 +139,7 @@ export function LoginPage() {
           <TextInput
             id="identity"
             name="identity"
+            type="email"
             autoComplete="username"
             value={identifier}
             placeholder={identifierHint}
@@ -164,7 +148,7 @@ export function LoginPage() {
             onChange={(event) => setIdentifier(event.target.value)}
           />
         </FieldShell>
-        <FieldShell id="password" label="Access passkey" hint="Demo only" error={errors.password}>
+        <FieldShell id="password" label="Password" error={errors.password}>
           <TextInput
             id="password"
             name="password"
@@ -187,9 +171,10 @@ export function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
           />
         </FieldShell>
-        <button className="button button--primary button--full" type="submit" disabled={isSubmitting}>
+        <button className="button button--primary button--full" type="submit" disabled={isSubmitting || Boolean(configurationError)}>
           {isSubmitting ? "Verifying..." : `Enter ${role === "admin" ? "Admin" : "Employee"} panel`}
         </button>
+        <Link to="/forgot-password">Forgot password?</Link>
       </form>
     </main>
   );

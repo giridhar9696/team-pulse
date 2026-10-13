@@ -1,10 +1,13 @@
 import { createContext, useContext } from "react";
-import type { DemoUser, LoginPayload } from "./authService";
+import type { AppUser, LoginPayload } from "./authService";
 
 export type AuthContextValue = {
-  user: DemoUser | null;
-  login: (payload: LoginPayload) => Promise<DemoUser>;
-  logout: () => void;
+  user: AppUser | null;
+  loading: boolean;
+  error: string | null;
+  login: (payload: LoginPayload) => Promise<AppUser>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

@@ -1,4 +1,4 @@
-import type { DemoUser } from "../auth/authService";
+import type { AppUser } from "../auth/authService";
 import type { TeamPulseEmployee, TeamPulseProject } from "../../data/demoData";
 import { getTaskRecords, isTaskOverdue, statusLabel } from "../admin/taskUtils";
 
@@ -42,13 +42,13 @@ function addDays(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
-export function getVisibleTasks(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: DemoUser | null) {
+export function getVisibleTasks(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: AppUser | null) {
   const tasks = getTaskRecords(projects, employees);
   if (user?.role === "employee") return tasks.filter((task) => task.assigneeId === user.identifier);
   return tasks;
 }
 
-export function buildNotifications(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: DemoUser | null): AppNotification[] {
+export function buildNotifications(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: AppUser | null): AppNotification[] {
   const tasks = getVisibleTasks(projects, employees, user);
   const taskNotifications = tasks.flatMap<AppNotification>((task) => {
     const items: AppNotification[] = [
@@ -173,7 +173,7 @@ export function buildNotifications(projects: TeamPulseProject[], employees: Team
   return [...taskNotifications, ...projectNotifications, ...employeeNotifications].sort((a, b) => b.at.localeCompare(a.at));
 }
 
-export function buildActivity(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: DemoUser | null): ActivityRecord[] {
+export function buildActivity(projects: TeamPulseProject[], employees: TeamPulseEmployee[], user: AppUser | null): ActivityRecord[] {
   const visibleTasks = getVisibleTasks(projects, employees, user);
   const taskEvents = visibleTasks.flatMap((task) => (task.history ?? []).map<ActivityRecord>((entry) => ({
     id: entry.id,
@@ -213,7 +213,7 @@ export function buildActivity(projects: TeamPulseProject[], employees: TeamPulse
   return [...taskEvents, ...projectEvents, ...accountEvents].sort((a, b) => b.at.localeCompare(a.at));
 }
 
-export function getSearchResults(projects: TeamPulseProject[], employees: TeamPulseEmployee[], notifications: AppNotification[], user: DemoUser | null, query: string) {
+export function getSearchResults(projects: TeamPulseProject[], employees: TeamPulseEmployee[], notifications: AppNotification[], user: AppUser | null, query: string) {
   const q = query.trim().toLowerCase();
   if (!q) return { projects: [], tasks: [], employees: [], notifications: [] };
   const visibleProjects = projects.filter((project) => user?.role === "admin" || project.tasks.some((task) => task.assigneeId === user?.identifier));

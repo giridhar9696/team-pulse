@@ -25,10 +25,17 @@ import { ProjectProvider } from "./features/admin/ProjectProvider";
 import { ProjectsList } from "./features/admin/ProjectsList";
 import { ProjectWorkspace } from "./features/admin/ProjectWorkspace";
 import "./styles/global.css";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RecoveryPage } from './features/auth/RecoveryPage';
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 15000 } } });
 
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/login" replace /> },
   { path: "/login", element: <LoginPage /> },
+  { path: '/auth/recovery', element: <RecoveryPage complete /> },
+  { path: '/auth/invitation', element: <RecoveryPage complete /> },
+  { path: '/forgot-password', element: <RecoveryPage /> },
   {
     path: "/admin",
     element: <RequireRole role="admin" />,
@@ -79,10 +86,10 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <AuthProvider>
+    <QueryClientProvider client={queryClient}><AuthProvider>
       <ProjectProvider>
         <RouterProvider router={router} />
       </ProjectProvider>
-    </AuthProvider>
+    </AuthProvider></QueryClientProvider>
   </StrictMode>,
 );

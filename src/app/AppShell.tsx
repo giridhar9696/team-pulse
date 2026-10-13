@@ -19,6 +19,7 @@ export function AppShell({ panel }: AppShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
+  const [logoutError, setLogoutError] = useState('');
   const unreadCount = useMemo(() => buildNotifications(projects, employees, user).filter((item) => !readNotificationIds.includes(item.id)).length, [employees, projects, readNotificationIds, user]);
 
   const pageTitle = useMemo(() => {
@@ -33,9 +34,9 @@ export function AppShell({ panel }: AppShellProps) {
       .join(" ");
   }, [location.pathname, panel]);
 
-  function handleLogout() {
-    logout();
-    navigate("/login", { replace: true });
+  async function handleLogout() {
+    try { await logout(); navigate("/login", { replace: true }); }
+    catch { setLogoutError('Unable to log out. Please retry.'); }
   }
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
@@ -126,6 +127,7 @@ export function AppShell({ panel }: AppShellProps) {
           </div>
         </header>
         <main className="page-shell">
+          {logoutError && <p role="alert">{logoutError}</p>}
           <Outlet />
         </main>
       </div>

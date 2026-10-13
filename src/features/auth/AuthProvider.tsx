@@ -1,53 +1,62 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { readEmployeeDirectory } from "../../data/employeeDirectory";
-import { AuthContext, type AuthContextValue } from "./authContext";
-import { authenticateDemoUser, type DemoUser } from "./authService";
-
-const storageKey = "team-pulse-demo-user";
-
-function readStoredUser(): DemoUser | null {
-  const stored = window.localStorage.getItem(storageKey);
-  if (!stored) {
-    return null;
-  }
-
-  try {
-    const user = JSON.parse(stored) as DemoUser;
-    if (user.role === "employee") {
-      const employee = readEmployeeDirectory().find((item) => item.id === user.identifier && item.status === "active");
-      return employee ? { ...user, name: employee.name } : null;
-    }
-    return user.role === "admin" || user.role === "employee" ? user : null;
-  } catch {
-    return null;
-  }
-}
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { configurationError, requireSupabase, supabase } from '../../lib/supabase';
+import { AuthContext } from './authContext';
+import { resolveUser, type AppUser, type LoginPayload } from './authService';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<DemoUser | null>(() => readStoredUser());
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      login: async (payload) => {
-        await new Promise((resolve) => window.setTimeout(resolve, 450));
-        const authenticated = authenticateDemoUser(payload);
-
-        if (!authenticated) {
-          throw new Error("Invalid demo credentials");
-        }
-
-        setUser(authenticated);
-        window.localStorage.setItem(storageKey, JSON.stringify(authenticated));
-        return authenticated;
-      },
-      logout: () => {
-        setUser(null);
-        window.localStorage.removeItem(storageKey);
-      },
-    }),
-    [user],
-  );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(configurationError);
+  const generation = useRef(0);
+  const identity = useRef<string | null>(null);
+  const cache = useQueryClient();
+  const invalidateRequests = useCallback(() => { ++generation.current; }, []);
+  const acceptUser = useCallback((next: AppUser | null) => {
+    if (identity.current !== (next?.id ?? null)) cache.clear();
+    identity.current = next?.id ?? null;
+    setUser(next);
+  }, [cache]);
+  const refreshUser = useCallback(async () => {
+    const request = ++generation.current;
+    try {
+      if (!supabase) { acceptUser(null); return; }
+      const next = await resolveUser();
+      if (request !== generation.current) return;
+      acceptUser(next);
+      setError(next ? null : 'Sign in with an active organization account.');
+    } catch {
+      if (request === generation.current) { acceptUser(null); setError('Unable to verify your session. Sign in again or retry.'); }
+    } finally { if (request === generation.current) setLoading(false); }
+  }, [acceptUser]);
+  useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
+    let alive = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session || event === 'SIGNED_OUT') { ++generation.current; acceptUser(null); setLoading(false); }
+      else {
+        // Return before another Supabase request acquires the auth callback's lock.
+        queueMicrotask(() => { if (alive) void refreshUser(); });
+      }
+    });
+    void refreshUser();
+    const onFocus = () => { void refreshUser(); };
+    window.addEventListener('focus', onFocus);
+    const timer = window.setInterval(onFocus, 60000);
+    return () => { alive = false; invalidateRequests(); subscription.unsubscribe(); window.removeEventListener('focus', onFocus); window.clearInterval(timer); };
+  }, [acceptUser, refreshUser, invalidateRequests]);
+  async function login(payload: LoginPayload) {
+    const client = requireSupabase();
+    const { error: authError } = await client.auth.signInWithPassword({ email: payload.identifier.trim(), password: payload.password });
+    if (authError) throw new Error('Unable to sign in. Check your email and password.');
+    const next = await resolveUser();
+    if (!next) { await client.auth.signOut(); throw new Error('An active organization account is required. Contact your administrator.'); }
+    acceptUser(next); setError(null); return next;
+  }
+  async function logout() {
+    const { error: logoutError } = await requireSupabase().auth.signOut();
+    if (logoutError) throw new Error('Unable to log out. Please retry.');
+    ++generation.current; acceptUser(null);
+  }
+  return <AuthContext.Provider value={{user,loading,error,login,logout,refreshUser}}>{children}</AuthContext.Provider>;
 }

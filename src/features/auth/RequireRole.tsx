@@ -7,9 +7,10 @@ type RequireRoleProps = {
 };
 
 export function RequireRole({ role }: RequireRoleProps) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
+  if (loading) return <p role="status">Restoring your session…</p>;
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
