@@ -3,7 +3,7 @@
 Work proceeds in the supplied phase order. An implemented local change is not evidence that a remote integration passed.
 
 - [x] 00: discovery, installed baseline checks, workflow map and audit; baseline typecheck failure recorded
-- [ ] 01: relational schema, integrity, transitions, access matrix and migration strategy
+- [x] 01: relational schema, integrity, transitions, access matrix and migration strategy; 7 isolated PostgreSQL tests pass
 - [ ] 02: Supabase login/logout/session/recovery and controlled provisioning
 - [ ] 03: RLS and direct positive/negative authorization tests
 - [ ] 04: migrate all authoritative browser persistence and asynchronous UI callers
@@ -16,6 +16,6 @@ Work proceeds in the supplied phase order. An implemented local change is not ev
 
 ## Current blockers
 
-Supabase connector must be reconnected to the user-designated account/organization. No Team Pulse development database selected. Email delivery, remote authorization, staging, backup restoration and production release remain unverified.
+Team-pulse connection sees the user-designated healthy food website organization, currently with no projects. New staging project awaits cost confirmation. Email delivery, hosted authorization, staging, backup restoration and production release remain unverified.
 
 Verdict: NOT READY FOR PRODUCTION.

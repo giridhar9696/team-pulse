@@ -28,4 +28,6 @@ Admin: project creation with initial tasks; project list/workspace; task creatio
 
 Supabase connector authenticated but returns only dealatecorp's Org/project. User explicitly excluded that account/project and designated account bylapudigiridhar005@gmail.com, organization healthy food website. No remote mutation performed. Reconnect the connector to the designated account before discovery/migrations. Production release requires explicit user approval.
 
+Update: the new Team-pulse connection sees healthy food website (`kotybqzfckqdepiqscmv`) with no projects. The excluded project has not been changed. Isolated PostgreSQL foundation tests: `npm run test:db`, 7/7 passed. After adding React types, TypeScript revealed additional pre-existing provider inference, report generic, task narrowing and login literal-state errors; these are recorded as baseline defects to fix during migration.
+
 Existing browser records must be exported and reviewed before any optional import. They are untrusted prototype records and cannot confer authenticated identities or privileges. Do not delete or silently migrate them.
