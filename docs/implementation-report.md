@@ -16,6 +16,7 @@ The repository now has a complete local implementation of the requested Supabase
 - Saved date-display preferences now affect dates throughout the interface. Organization time zones determine overdue days, activity filters and completion-report dates. Notification access follows current task/project access; saved deadline preferences control generation/display, changing deadline phases reopen notices, and confirmed invitations receive existing assignment notices. Active workspace queries refresh every minute; representative hosted query cost remains unmeasured.
 - Monitoring code uses the installed Sentry SDK's privacy controls and event scrubbing. Actual delivery is unverified. There is no upload workflow; no buckets, realtime feature, SMS/push integration or custom API server was added. Digest preference is stored; no new scheduled outbound digest service was introduced.
 - CI runs installation, lint, type checks, tests/coverage, build, dependency/static/bundle/secret scans and Chromium smoke tests. A line-coverage gate is 80%. Vercel config includes SPA rewrites, security headers and a prebuild configuration guard; production requires monitoring configuration. Environment example, provisioning, deployment, backup/recovery and incident procedures are present.
+- The staging runner reserves and incrementally updates a fixture manifest and refuses to overwrite unresolved prior fixtures. An owner-only cleanup transaction validates the recorded organization, E2E project name and full task inventory, removes only fixture dependencies and preserves accounts/unrelated projects. This transaction is verified on isolated PostgreSQL; no hosted cleanup has occurred.
 
 ## Migrations and principal files
 
@@ -29,7 +30,7 @@ Apply only to the selected dedicated project after schema/history inspection, in
 6. `supabase/migrations/20261013104341_revoke_unassigned_project_access.sql`
 7. `supabase/migrations/20261013112540_notification_preferences_and_scope.sql`
 
-Principal runtime changes: `src/features/auth/*`, `src/features/admin/ProjectProvider.tsx`, `projectContext.ts`, all mutation forms/screens, `src/data/{types,workspace,employeeDirectory}.ts`, `src/lib/{supabase,publicConfiguration,validation,monitoring}.ts`, calendar utilities, operational/employee reporting screens, safe error boundary, AppShell/Tabs and CSS. Server account code: `supabase/functions/manage-account/index.ts`. Owner-only SQL: `supabase/provision-first-admin.sql` and `supabase/link-existing-employee.sql`.
+Principal runtime changes: `src/features/auth/*`, `src/features/admin/ProjectProvider.tsx`, `projectContext.ts`, all mutation forms/screens, `src/data/{types,workspace,employeeDirectory}.ts`, `src/lib/{supabase,publicConfiguration,validation,monitoring}.ts`, calendar utilities, operational/employee reporting screens, safe error boundary, AppShell/Tabs and CSS. Server account code: `supabase/functions/manage-account/index.ts`. Owner-only SQL: `supabase/provision-first-admin.sql`, `supabase/link-existing-employee.sql` and `supabase/cleanup-staging-fixture.sql`.
 
 Delivery/tests: `tests/*`, `e2e/*`, `vitest.config.ts`, both Playwright configs, TypeScript configs, `scripts/*`, `package.json`/lockfile, `.github/workflows/ci.yml`, Dependabot config, `.env.example`, `vercel.json`, README and all readiness/architecture/security/deployment/operations documents. `docs/changed-files.txt` records the full baseline-to-checkpoint inventory. Prototype fixtures remain outside the production import graph.
 
@@ -41,7 +42,7 @@ Delivery/tests: `tests/*`, `e2e/*`, `vitest.config.ts`, both Playwright configs,
 | npm run lint | Passed, no remaining lint warnings/errors |
 | npm run typecheck (also runs in build) | Passed for source, build config and tests |
 | npm test -- --coverage | 88/88 tests, nine suites; lines 83.83%, statements 79.70%, branches 68.02%, functions 74.91% |
-| npm run test:db | 14/16 isolated PostgreSQL tests, all seven migrations |
+| npm run test:db (staging cleanup follow-up) | 17/17 isolated PostgreSQL tests, all seven migrations and the guarded cleanup transaction |
 | npm run test:e2e | 3/3 Chromium smoke tests, including forged browser-admin state, missing configuration, recovery errors and keyboard interaction |
 | npm run build | Passed; 2192 modules, eight checked build assets; nonfatal Zod annotation warnings |
 | npm run security:check | Passed production-import/storage/rendering and secret-pattern checks |
@@ -72,4 +73,4 @@ For the first real employee: follow `docs/deployment.md` to set up the dedicated
 
 ## Final checkpoint evidence
 
-Implementation checkpoint: `45bf0c1` on the existing `main` branch. Earlier checkpoints: `e4d68a1` (baseline audit), `494f31e` (schema/authorization), `6071632` (verified Auth). All local checks above passed on the implementation tree. Gitleaks 8.30.1 scanned all nine commits through `45bf0c1`, approximately 706 KB, and found no leaks. The accompanying documentation checkpoint records this evidence; no runtime changes follow the verified implementation. No production release approval has been requested because the required hosted checks are not complete. Nothing was pushed or remotely deployed.
+Implementation checkpoint: `45bf0c1` on the existing `main` branch. Earlier checkpoints: `e4d68a1` (baseline audit), `494f31e` (schema/authorization), `6071632` (verified Auth). The full local coverage/build/browser run above passed on that implementation tree. Gitleaks 8.30.1 scanned all ten commits through documentation checkpoint `d140802`, approximately 707 KB, and found no leaks. The subsequent staging-cleanup follow-up passed 17 SQL tests, lint, typechecking and static security checks; production application source is unchanged. No production release approval has been requested because the required hosted checks are not complete. Nothing was pushed or remotely deployed.

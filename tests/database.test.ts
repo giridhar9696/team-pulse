@@ -207,4 +207,23 @@ describe('PostgreSQL foundation and authorization', () => {
     expect((await asUser(outsider,()=>db.query('select * from public.project_summaries()'))).rows).toHaveLength(0);
     await expect(asUser(null,()=>db.query('select * from public.project_summaries()'))).rejects.toThrow(/permission denied/);
   });
+  it('cleans up only the recorded staging project and refuses mismatched task inventories',async()=>{
+    const name='E2E-30000000-0000-4000-8000-000000000001';
+    await db.query('update public.projects set name=$1 where id=$2',[name,project]);
+    const other=(await asUser(admin,()=>db.query<{create_project:string}>('select public.create_project($1::jsonb)',[JSON.stringify({name:'Unrelated project',description:'Keep this project',startDate:'2026-10-13',deadline:'2026-10-30',tasks:[draft]})]))).rows[0].create_project;
+    await mutate(employee,1,'submit',{url:'https://example.test/work',note:'Done'});
+    await mutate(admin,2,'approve',{feedback:'Approved.'});
+    const template=readFileSync('supabase/cleanup-staging-fixture.sql','utf8');
+    const cleanup=(id:string)=>template.replace('REPLACE_ORGANIZATION_ID',org).replace('REPLACE_PROJECT_ID',project).replace('REPLACE_PROJECT_NAME',name).replace('REPLACE_TASK_ID',id);
+    await expect(db.exec(cleanup('30000000-0000-4000-8000-000000000099'))).rejects.toThrow(/inventory/);
+    await db.exec('rollback');
+    expect((await db.query('select * from public.projects')).rows).toHaveLength(2);
+    await db.exec(cleanup(task));
+    expect((await db.query<{id:string}>('select id from public.projects')).rows).toEqual([{id:other}]);
+    expect((await db.query('select * from public.tasks')).rows).toHaveLength(1);
+    expect((await db.query('select * from public.memberships')).rows).toHaveLength(4);
+    expect((await db.query('select * from auth.users')).rows).toHaveLength(4);
+    expect((await db.query('select * from public.submissions')).rows).toHaveLength(0);
+    expect((await db.query('select * from public.notifications where task_id=$1',[task])).rows).toHaveLength(0);
+  });
 });

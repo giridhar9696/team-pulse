@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 
 async function login(page:Page,role:'admin'|'employee') {
   const prefix=role==='admin' ? 'TEAM_PULSE_TEST_ADMIN' : 'TEAM_PULSE_TEST_EMPLOYEE';
@@ -12,6 +12,7 @@ async function login(page:Page,role:'admin'|'employee') {
   await expect(page).toHaveURL(new RegExp(`/${role}$`));
 }
 test('real administrator/employee persistence, review cycle and direct authorization',async({browser})=>{
+  if (existsSync('.staging-fixtures.json')) throw new Error('Clean up and verify the previous staging fixture before another run. See docs/deployment.md.');
   const adminClient=createClient(process.env.TEAM_PULSE_TEST_SUPABASE_URL!,process.env.TEAM_PULSE_TEST_PUBLISHABLE_KEY!,{auth:{persistSession:false,autoRefreshToken:false}});
   const employeeClient=createClient(process.env.TEAM_PULSE_TEST_SUPABASE_URL!,process.env.TEAM_PULSE_TEST_PUBLISHABLE_KEY!,{auth:{persistSession:false,autoRefreshToken:false}});
   const adminAuth=await adminClient.auth.signInWithPassword({email:process.env.TEAM_PULSE_TEST_ADMIN_EMAIL!,password:process.env.TEAM_PULSE_TEST_ADMIN_PASSWORD!});
@@ -26,6 +27,9 @@ test('real administrator/employee persistence, review cycle and direct authoriza
   const suffix=crypto.randomUUID();
   let projectId:string|undefined;
   const createdTasks:string[]=[];
+  const recordFixtures=(flag='w')=>writeFileSync('.staging-fixtures.json',JSON.stringify({projectRef:process.env.TEAM_PULSE_TEST_PROJECT_REF,organizationId:administrator.organization_id,projectId:projectId??null,taskIds:createdTasks,name:`E2E-${suffix}`},null,2),{flag});
+  // Reserve before any database write; a second run cannot overwrite unresolved cleanup evidence.
+  recordFixtures('wx');
   try {
     await login(adminPage,'admin');
     await adminPage.goto('/admin/projects/new');
@@ -41,10 +45,13 @@ test('real administrator/employee persistence, review cycle and direct authoriza
     await adminPage.getByRole('button',{name:'Save Project',exact:true}).click();
     await expect(adminPage).toHaveURL(/\/admin\/projects\/[a-f0-9-]+$/);
     projectId=adminPage.url().split('/').at(-1)!;
+    recordFixtures();
     const task=(await adminClient.from('tasks').select('*').eq('project_id',projectId).single()).data!;
     createdTasks.push(task.id);
+    recordFixtures();
     const hidden=await adminClient.rpc('create_task',{payload:{projectId,title:'Administrator-only assignment',description:'Access boundary fixture',technology:'Backend',assigneeId:administrator.id,assignedDate:'2026-01-01',deadline:'2099-12-31',status:'pending',required:false}});
     expect(hidden.error).toBeNull();createdTasks.push(hidden.data);
+    recordFixtures();
     expect((await employeeClient.from('tasks').select('*').eq('id',hidden.data)).data).toEqual([]);
     expect((await employeeClient.rpc('mutate_task',{tid:hidden.data,expected_version:1,action:'cancel',payload:{}})).error).not.toBeNull();
     expect((await employeeClient.from('memberships').update({role:'admin'}).eq('user_id',employeeAuth.data.user!.id)).error).not.toBeNull();
@@ -72,7 +79,7 @@ test('real administrator/employee persistence, review cycle and direct authoriza
     try {const page=await secondContext.newPage();await login(page,'employee');await page.goto(`/employee/tasks/${task.id}`);await expect(page.getByRole('button',{name:'Submit for Review'})).toBeDisabled();} finally {await secondContext.close();}
   } finally {
     // Owner cleanup is explicit because production intentionally has no destructive client endpoint.
-    if (projectId) writeFileSync('.staging-fixtures.json',JSON.stringify({projectId,taskIds:createdTasks,name:`E2E-${suffix}`},null,2));
+    recordFixtures();
     await adminContext.close();await employeeContext.close();
     await adminClient.auth.signOut();await employeeClient.auth.signOut();
   }
